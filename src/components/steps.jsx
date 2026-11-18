@@ -34,6 +34,7 @@ const CLEAR = { picked: false, offline: false, outletName: '', division: '', age
 export function StepOutlet({ data, set }) {
   const [state, setState] = useState(data.picked ? 'found' : data.offline ? 'offline' : 'idle') // idle | looking | found | notfound | offline
   const [asking, setAsking] = useState(false)
+  const [serverError, setServerError] = useState('')
   const seq = useRef(0)
 
   function fill(id, o) {
@@ -57,10 +58,16 @@ export function StepOutlet({ data, set }) {
       } else {
         setState('notfound')
       }
-    } catch {
+    } catch (err) {
       if (n !== seq.current) return
-      set({ offline: true })
-      setState('offline')
+      // Only a real network failure counts as offline. A server error is shown as it is.
+      if (!navigator.onLine || /no connection|took too long/i.test(err?.message || '')) {
+        set({ offline: true })
+        setState('offline')
+      } else {
+        setServerError(err?.message || 'The server could not look up this outlet.')
+        setState('error')
+      }
     }
   }
 
@@ -136,7 +143,12 @@ export function StepOutlet({ data, set }) {
       {state === 'notfound' && (
         <Notice className="mt-3">Outlet ID {normOutletId(data.outletId)} is not in the outlet data. Check the number.</Notice>
       )}
-      {state === 'offline' && (
+      {state === 'error' && (
+        <Notice className="mt-3">
+          The server could not look up {normOutletId(data.outletId)}: {serverError}
+        </Notice>
+      )}
+            {state === 'offline' && (
         <Notice tone="info" className="mt-3">
           No connection, so the outlet details can't be shown. You can carry on. They are filled in from the outlet data when the survey uploads.
         </Notice>
