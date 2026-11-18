@@ -1,8 +1,8 @@
 import { BRANDS, DISPENSER_STATES, VISIBILITY_ITEMS } from '../config'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { requestOutlet } from '../api'
 import { latestFix } from '../location'
-import { findOutlet, localOutlet, normOutletId } from '../outlets'
+import { clearPack, packCount, searchPack, syncPack } from '../outlets'
 import { Button, Field, Notice, Sheet, Spinner, inputClass } from './ui'
 
 export const STEP_COUNT = 5
@@ -32,60 +32,31 @@ const DETAIL_ROWS = [
 const CLEAR = { picked: false, offline: false, outletName: '', division: '', agent: '', parentTerritory: '', territory: '' }
 
 export function StepOutlet({ data, set }) {
-  const [state, setState] = useState(data.picked ? 'found' : data.offline ? 'offline' : 'idle') // idle | looking | found | notfound | offline
+  const [query, setQuery] = useState('')
   const [asking, setAsking] = useState(false)
-  const [serverError, setServerError] = useState('')
-  const seq = useRef(0)
+  const [count, setCount] = useState(packCount)
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
-  function fill(id, o) {
-    set({ ...CLEAR, picked: true, outletId: id, outletName: o.outletName, division: o.division, agent: o.agent, parentTerritory: o.parentTerritory, territory: o.territory })
-    setState('found')
+  // Make sure the outlet list is on the phone. Quick when it's already there.
+  async function download(force) {
+    if (force) clearPack()
+    setLoading(true)
+    setLoadError('')
+    await syncPack()
+    const n = packCount()
+    setCount(n)
+    setLoading(false)
+    if (!n) setLoadError(navigator.onLine ? 'The outlet list came back empty. Ask your admin to check the National Outlet tab.' : 'No connection. Connect once to download the outlet list.')
   }
-
-  async function look(raw) {
-    const id = normOutletId(raw)
-    const n = ++seq.current
-    if (id.length < 4) {
-      setState('idle')
-      return
-    }
-    setState('looking')
-    try {
-      const r = await findOutlet(id)
-      if (n !== seq.current) return
-      if (r.found) {
-        fill(id, r.outlet)
-      } else {
-        setState('notfound')
-      }
-    } catch (err) {
-      if (n !== seq.current) return
-      // Only a real network failure counts as offline. A server error is shown as it is.
-      if (!navigator.onLine || /no connection|took too long/i.test(err?.message || '')) {
-        set({ offline: true })
-        setState('offline')
-      } else {
-        setServerError(err?.message || 'The server could not look up this outlet.')
-        setState('error')
-      }
-    }
-  }
-
-  // Looks the ID up once the BA stops typing
   useEffect(() => {
-    if (data.picked) return
-    const t = setTimeout(() => look(data.outletId), 450)
-    return () => clearTimeout(t)
-  }, [data.outletId])
+    if (!data.picked) download(false)
+  }, [])
 
-  // Outlets stored on the phone fill in on the keystroke, with no waiting
-  function type(e) {
-    seq.current++
-    const id = e.target.value.replace(/\s+/g, '').toUpperCase()
-    const o = id.length >= 4 ? localOutlet(id) : null
-    if (o) return fill(id, o)
-    set({ ...CLEAR, outletId: id })
-    setState('idle')
+  const matches = useMemo(() => (query.trim().length >= 2 ? searchPack(query) : []), [query, count])
+
+  function pick(o) {
+    set({ ...CLEAR, picked: true, outletId: o.outletId, outletName: o.outletName, division: o.division, agent: o.agent, parentTerritory: o.parentTerritory, territory: o.territory })
   }
 
   if (data.picked) {
@@ -103,15 +74,15 @@ export function StepOutlet({ data, set }) {
             </div>
           </div>
           <dl className="mt-4 pt-4 border-t border-paper/15 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            {DETAIL_ROWS.map(([k, label]) => (
+            {DETAIL_ROWS.filter(([k]) => data[k]).map(([k, label]) => (
               <div key={k} className="contents">
                 <dt className="text-paper/55">{label}</dt>
-                <dd className="font-semibold min-w-0 break-words">{data[k] || '-'}</dd>
+                <dd className="font-semibold min-w-0 break-words">{data[k]}</dd>
               </div>
             ))}
           </dl>
         </div>
-        <Button variant="ghost" className="mt-4 btn-hover" onClick={() => { set({ ...CLEAR, outletId: '' }); setState('idle') }}>
+        <Button variant="ghost" className="mt-4 btn-hover" onClick={() => { set({ ...CLEAR, outletId: '' }); setQuery('') }}>
           Change outlet
         </Button>
       </>
@@ -120,44 +91,71 @@ export function StepOutlet({ data, set }) {
 
   return (
     <>
-      <Title n={1} sub="Type the outlet ID. The rest fills in from the outlet data.">Outlet ID</Title>
+      <Title n={1} sub="Type part of the outlet name, then tap the outlet.">Find the outlet</Title>
       <div className="relative anim-rise">
+        <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-ink/40 pointer-events-none" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
         <input
-          className={`${inputClass} text-xl tracking-widest font-semibold pr-12`}
-          value={data.outletId}
-          onChange={type}
-          inputMode="numeric"
+          className={`${inputClass} text-lg pl-12 pr-11`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           autoComplete="off"
           autoCorrect="off"
           spellCheck="false"
-          placeholder="e.g. 1237916"
+          placeholder="e.g. Haykoch"
           autoFocus
+          inputMode="search"
+          enterKeyHint="search"
         />
-        {state === 'looking' && (
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gold-dark">
-            <Spinner />
-          </span>
+        {query && (
+          <button type="button" onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full text-ink/45 text-xl">
+            ×
+          </button>
         )}
       </div>
 
-      {state === 'notfound' && (
-        <Notice className="mt-3">Outlet ID {normOutletId(data.outletId)} is not in the outlet data. Check the number.</Notice>
+      {loading && !count && (
+        <p className="mt-4 text-sm text-ink/60 flex items-center gap-2">
+          <Spinner /> Downloading the outlet list…
+        </p>
       )}
-      {state === 'error' && (
+      {loadError && !count && (
         <Notice className="mt-3">
-          The server could not look up {normOutletId(data.outletId)}: {serverError}
+          {loadError}{' '}
+          <button type="button" className="underline font-semibold" onClick={() => download(true)}>
+            Try again
+          </button>
         </Notice>
       )}
-            {state === 'offline' && (
-        <Notice tone="info" className="mt-3">
-          No connection, so the outlet details can't be shown. You can carry on. They are filled in from the outlet data when the survey uploads.
-        </Notice>
+
+      {query.trim().length === 1 && <p className="mt-3 text-sm text-ink/55">Keep typing…</p>}
+
+      {matches.length > 0 && (
+        <ul className="mt-3 space-y-2 stagger">
+          {matches.map((o, i) => (
+            <li key={o.outletId} style={{ '--i': Math.min(i, 8) }}>
+              <button type="button" onClick={() => pick(o)} className="pick w-full text-left rounded-2xl bg-white border border-ink/15 px-4 py-3 active:scale-[0.98] hover:border-gold">
+                <span className="block text-[16px] font-semibold leading-snug">{o.outletName}</span>
+                <span className="block text-xs text-ink/55 mt-0.5">
+                  <span className="text-gold-dark font-semibold">{o.outletId}</span>
+                  {o.territory && ` · ${o.territory}`}
+                  {o.parentTerritory && ` · ${o.parentTerritory}`}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
+
+      {query.trim().length >= 2 && count > 0 && matches.length === 0 && (
+        <Notice className="mt-3">No outlet matches "{query.trim()}". Try fewer letters or another word from the name.</Notice>
+      )}
+
+      {count > 0 && !query && <p className="mt-3 text-xs text-ink/45">{count} outlets on this phone</p>}
 
       <Button variant="quiet" className="mt-4" onClick={() => setAsking(true)}>
         Not on the list?
       </Button>
-      {asking && <RequestOutlet initial={data.outletId} onClose={() => setAsking(false)} />}
+      {asking && <RequestOutlet initial={query} onClose={() => setAsking(false)} />}
     </>
   )
 }

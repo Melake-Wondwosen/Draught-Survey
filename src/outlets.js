@@ -134,12 +134,33 @@ export function localOutlet(id) {
 
 export const hasPack = () => (loadPack()?.rows?.length || 0) > 0
 
+// Name search on the phone. Every word typed must appear in the outlet name
+// (or ID), in any order, ignoring case and punctuation. Names that start with
+// the search come first.
+const simplify = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9\u1200-\u137f]+/g, ' ').trim()
+export function searchPack(query, limit = 40) {
+  const q = simplify(query)
+  if (!q) return []
+  const words = q.split(' ')
+  const rows = loadPack()?.rows || []
+  const out = []
+  for (const r of rows) {
+    const name = simplify(r[1])
+    const hay = name + ' ' + String(r[0]).toLowerCase()
+    if (words.every((w) => hay.includes(w))) out.push({ r, starts: name.startsWith(q) ? 0 : 1, name })
+  }
+  out.sort((a, b) => a.starts - b.starts || a.name.localeCompare(b.name))
+  return out.slice(0, limit).map(({ r }) => localOutlet(r[0]))
+}
+export const packCount = () => loadPack()?.rows?.length || 0
+
 let packSync = null
 // `serverVersion` comes from the heartbeat; without it the pack refreshes when
 // it's over a day old.
 export function syncPack(serverVersion) {
   const cur = loadPack()
-  const fresh = cur && Date.now() - cur.at < PACK_MAX_AGE
+  // An empty list is never treated as fresh, so outlets added later come down straight away
+  const fresh = cur && cur.rows?.length > 0 && Date.now() - cur.at < PACK_MAX_AGE
   if (cur && (serverVersion ? cur.version.split('|')[0] === serverVersion : fresh)) return Promise.resolve(false)
   if (packSync) return packSync
   packSync = fetchOutletPack(cur?.version)

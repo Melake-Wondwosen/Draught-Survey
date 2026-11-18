@@ -8,7 +8,7 @@ Draught survey app for BAs, with a manager view and admin console in the same ap
 
 | Step | Question | Saved as |
 |---|---|---|
-| 1 | Outlet ID (name, division, agent and territory fill in from National Outlet) | outletId, outletName, division, agent, parentTerritory, territory |
+| 1 | Outlet search: type part of the name (or the ID), tap the outlet. The list comes from the National Outlet tab and is kept on the phone, so search works without signal | outletId, outletName, division, agent, parentTerritory, territory |
 | 2 | Draught brands on tap, tapped in order of draught sales. Or "This outlet sells no draught", which ends the survey here | draught (Yes/No), rankBGI ... rankOther, otherBrandName |
 | 3 | Kegs a week per brand (can skip) | kegsBGI ... kegsOther |
 | 4 | Price of one mug per brand, in birr (can skip) | priceBGI ... priceOther |
