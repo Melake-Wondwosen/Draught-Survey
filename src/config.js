@@ -1,6 +1,6 @@
 // Apps Script web app URL (the draught survey's own backend, see apps-script/Survey.gs).
 // Paste the URL ending in /exec from Deploy > New deployment > Web app.
-export const API_URL = ''
+export const API_URL = 'https://script.google.com/macros/s/AKfycbyqUpaqYL5yrL9OQEVA2DQvBNVAFgT0vECy33ZJf2T2-p_KDBe_3FapnAgksJ4HqRCKaQ/exec'
 
 // Demo builds (vite --mode demo) never call the server.
 export const DEMO = import.meta.env.MODE === 'demo'
