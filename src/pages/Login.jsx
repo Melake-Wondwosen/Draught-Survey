@@ -24,31 +24,31 @@ export default function Login() {
     setFace((f) => ({ ...f, mood: st === 'signing' ? 'idle' : 'confused' }))
   }
 
+  // More pattern units on wider screens, so the band stays the same height as on a phone
+  const [bandUnits] = useState(() => Math.max(4, Math.round((typeof window === 'undefined' ? 390 : window.innerWidth) / 97)))
+
   if (current?.token) return <Navigate to={homeFor(current)} replace />
 
   return (
-    <main className="login-glass min-h-full flex flex-col safe-top safe-bottom relative overflow-hidden bg-ink text-paper">
-      {/* Backdrop: drifting gold glows, a soft vignette and fine grain */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <span className="glow glow-a" />
-        <span className="glow glow-b" />
-        <span className="glow glow-c" />
-        <span className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(0,0,0,0.75)_100%)]" />
-        <span className="grain absolute inset-0" />
+    <main className="min-h-full flex flex-col safe-top bg-ink">
+      {/* Top: black with the logo and the moving pattern band */}
+      <div className="relative shrink-0 pt-8 pb-12 overflow-hidden bg-[radial-gradient(90%_80%_at_50%_40%,#2a210f,#000_70%)]">
+        <div className="relative flex flex-col items-center anim-fade">
+          <WatchingLogo className="w-[132px]" glow mood={face.mood} field={face.field} progress={face.progress} />
+        </div>
+        <MovingPattern className="login-band mt-5" units={bandUnits} />
       </div>
 
-      <div className="relative flex-1 flex flex-col justify-center px-6 py-8 max-w-md w-full mx-auto stagger">
-        <div className="relative mx-auto" style={{ '--i': 0 }}>
-          <span aria-hidden="true" className="absolute inset-0 -m-10 rounded-full bg-gold/35 blur-3xl" />
-          <WatchingLogo className="relative w-32" glow mood={face.mood} field={face.field} progress={face.progress} />
-        </div>
-        <MovingPattern className="mt-5 -mx-6" style={{ '--i': 1 }} />
-        <div style={{ '--i': 2 }} className="text-center mt-6">
-          <h1 className="text-[30px] leading-tight font-bold tracking-tight">Draught Survey</h1>
-          <p className="text-paper/60 mt-1.5 text-[15px]">Sign in to start your outlet visits</p>
-        </div>
-        <div className="mt-7" style={{ '--i': 3 }}>
-          <SignInForm onWatch={watch} onStatus={status} onDone={(u) => navigate(homeFor(u), { replace: true })} />
+      {/* Bottom: white sheet with the form */}
+      <div className="relative flex-1 -mt-8 bg-paper text-ink rounded-t-[30px] safe-bottom">
+        <div className="max-w-md mx-auto px-6 pt-8 pb-10 stagger">
+          <div style={{ '--i': 0 }}>
+            <h1 className="font-serif text-[30px] leading-tight font-bold">Draught Survey</h1>
+            <p className="text-ink/50 mt-1 text-[15px]">Sign in to start your outlet visits</p>
+          </div>
+          <div className="mt-6" style={{ '--i': 1 }}>
+            <SignInForm onWatch={watch} onStatus={status} onDone={(u) => navigate(homeFor(u), { replace: true })} />
+          </div>
         </div>
       </div>
     </main>
