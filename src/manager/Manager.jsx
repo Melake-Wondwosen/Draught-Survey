@@ -7,7 +7,8 @@ import { Emblem, SignOutButton, Spinner } from '../components/ui'
 import Bell from '../components/Bell'
 import { clearNotesMemory, setServerNotes } from '../notes'
 import MapView from './MapView'
-import { ago, birr, isDraught, marketShare, pct, teamStatus, text, topBrand, num } from './calc'
+import { GROUPS } from '../questionnaire'
+import { ago, answerRate, groupCounts, groupShort, kegShare, pct, surveyLine, teamStatus, text } from './calc'
 
 const PERIODS = [
   { key: 'today', label: 'Today' },
@@ -77,7 +78,10 @@ export default function Manager() {
     () => (data ? teamStatus({ bas: data.bas, presence: data.presence, surveys: data.surveys, track: data.track, flags: data.flags }, serverNow, dayStart().getTime()) : []),
     [data, serverNow],
   )
-  const share = useMemo(() => (data ? marketShare(data.surveys) : null), [data])
+  const share = useMemo(() => (data ? kegShare(data.surveys) : null), [data])
+  const groups = useMemo(() => (data ? groupCounts(data.surveys, GROUPS) : []), [data])
+  const trial = useMemo(() => (data ? answerRate(data.surveys, 'm_trial', ['Yes, now', 'Yes, after contract ends']) : null), [data])
+  const order = useMemo(() => (data ? answerRate(data.surveys, 'c_wouldOrder', ['Yes']) : null), [data])
   const recent = useMemo(() => (data ? [...data.surveys].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15) : []), [data])
 
   function signOut() {
@@ -88,7 +92,7 @@ export default function Manager() {
 
   const online = team.filter((b) => b.online).length
   const activeToday = team.filter((b) => b.seenToday).length
-  const outlets = (share?.outlets ?? 0) + (share?.noDraught ?? 0)
+  const outlets = share?.outlets ?? 0
 
   return (
     <main className="min-h-full safe-bottom anim-fade">
@@ -138,7 +142,7 @@ export default function Manager() {
 
         {data && (
           <>
-            <MarketShare share={share} />
+            <MarketShare share={share} groups={groups} trial={trial} order={order} />
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger">
               <Tile i={0} label="Online now" value={online} sub={`of ${team.length} BAs`} live />
@@ -170,15 +174,15 @@ export default function Manager() {
               {!recent.length && <p className="text-sm text-ink/60 mt-2">No surveys.</p>}
               <ul className="mt-2 divide-y divide-ink/10">
                 {recent.map((s) => (
-                  <li key={text(s.id)} className="row-hover px-2 -mx-2 rounded-lg py-2.5 grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[110px_minmax(0,1fr)_minmax(0,1fr)_110px] gap-x-3 gap-y-0.5 text-sm">
+                  <li key={text(s.id)} className="row-hover px-2 -mx-2 rounded-lg py-2.5 grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[110px_minmax(0,1fr)_minmax(0,0.8fr)_auto] gap-x-3 gap-y-0.5 text-sm">
                     <span className="text-ink/55 order-3 sm:order-none">{dateTime(s.date)}</span>
                     <span className="font-semibold truncate">
                       {text(s.outletName)} <span className="font-normal text-ink/50">{text(s.outletId)}</span>
                     </span>
                     <span className="text-ink/70 truncate order-4 sm:order-none">{text(s.baName)}</span>
-                    <span className="text-right">
-                      {isDraught(s) ? <>#1 <b>{topBrand(s)}</b></> : <b className="text-ink/55">No draught</b>}
-                      {isDraught(s) && num(s.rankHabesha) != null && num(s.rankHabesha) !== 1 && <span className="text-ink/55"> · Habesha #{num(s.rankHabesha)}</span>}
+                    <span className="text-right whitespace-nowrap">
+                      {s.group && <b>{groupShort(s.group)}</b>}
+                      <span className="hidden sm:inline text-ink/55">{s.group ? ' · ' : ''}{surveyLine(s)}</span>
                     </span>
                   </li>
                 ))}
@@ -245,9 +249,8 @@ function TeamRow({ ba, now, selected, onClick }) {
   )
 }
 
-function MarketShare({ share }) {
-  const rows = [...share.rows].sort((a, b) => (b.volumeShare ?? -1) - (a.volumeShare ?? -1) || (b.sellingIn ?? 0) - (a.sellingIn ?? 0))
-  const max = Math.max(0.0001, ...rows.map((r) => r.volumeShare || 0))
+function MarketShare({ share, groups, trial, order }) {
+  const max = Math.max(0.0001, ...share.rows.map((r) => r.share || 0))
   // Bars grow in from zero after the first paint
   const [grow, setGrow] = useState(false)
   useEffect(() => {
@@ -255,45 +258,45 @@ function MarketShare({ share }) {
     return () => cancelAnimationFrame(t)
   }, [])
   return (
-    <section className="rounded-2xl bg-white border border-ink/10 p-4 anim-rise">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-serif text-xl">Draught market share</h2>
-        <p className="text-xs text-ink/55">
-          {share.outlets} draught outlets{share.noDraught ? ` · ${share.noDraught} with no draught` : ''} · {share.totalKegs.toLocaleString()} kegs a week
-        </p>
-      </div>
-
-      <div className="hidden md:grid grid-cols-[130px_minmax(0,1fr)_95px_95px_80px] gap-3 mt-4 text-[11px] uppercase tracking-wider text-gold-dark">
-        <span>Brand</span>
-        <span>Volume share</span>
-        <span className="text-right">On tap in</span>
-        <span className="text-right">Ranked #1</span>
-        <span className="text-right">Avg price</span>
-      </div>
-      <ul className="mt-2 md:mt-1 divide-y divide-ink/10">
-        {rows.map((r) => (
-          <li key={r.key} className="row-hover px-2 -mx-2 rounded-lg py-2.5 grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[130px_minmax(0,1fr)_95px_95px_80px] gap-x-3 gap-y-1 items-center">
-            <span className="font-semibold flex items-center gap-1.5">
-              {r.label}
-              {r.ours && <span className="text-[9px] font-bold tracking-widest rounded-full px-1.5 py-0.5 gold-gradient text-ink">OURS</span>}
-            </span>
-            <span className="md:hidden text-right font-serif text-lg">{pct(r.volumeShare)}</span>
-            <span className="col-span-2 md:col-span-1 flex items-center gap-2">
-              <span className="flex-1 h-3 rounded-full bg-mist overflow-hidden">
-                <span className={`block h-full rounded-full transition-[width] duration-700 ease-[cubic-bezier(.22,1,.36,1)] ${r.ours ? 'gold-gradient' : 'bg-ink-soft'}`} style={{ width: `${grow ? ((r.volumeShare || 0) / max) * 100 : 0}%` }} />
+    <section className="rounded-2xl bg-white border border-ink/10 p-4 anim-rise grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-x-8 gap-y-5">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-serif text-xl">Draught keg share</h2>
+          <p className="text-xs text-ink/55">
+            {share.counted} of {share.outlets} outlets gave keg counts · {share.total.toLocaleString()} kegs a week
+          </p>
+        </div>
+        <ul className="mt-3 space-y-3">
+          {share.rows.map((r) => (
+            <li key={r.key} className="grid grid-cols-[96px_minmax(0,1fr)_60px] gap-3 items-center">
+              <span className="font-semibold flex items-center gap-1.5 text-sm">
+                {r.label}
+                {r.ours && <span className="text-[9px] font-bold tracking-widest rounded-full px-1.5 py-0.5 gold-gradient text-ink">OURS</span>}
               </span>
-              <span className="hidden md:inline w-14 text-right font-semibold tabular-nums">{pct(r.volumeShare)}</span>
-            </span>
-            <span className="col-span-2 md:col-span-3 grid grid-cols-3 md:contents text-xs md:text-sm text-ink/70">
-              <span className="md:text-right tabular-nums"><span className="md:hidden text-ink/45">On tap in </span>{pct(r.sellingIn)}</span>
-              <span className="text-center md:text-right tabular-nums"><span className="md:hidden text-ink/45">#1 in </span>{pct(r.topIn)}</span>
-              <span className="text-right tabular-nums"><span className="md:hidden text-ink/45">Price </span>{birr(r.avgPrice)}</span>
-            </span>
-          </li>
+              <span className="h-3 rounded-full bg-mist overflow-hidden">
+                <span className={`block h-full rounded-full transition-[width] duration-700 ease-[cubic-bezier(.22,1,.36,1)] ${r.ours ? 'gold-gradient' : 'bg-ink-soft'}`} style={{ width: `${grow ? ((r.share || 0) / max) * 100 : 0}%` }} />
+              </span>
+              <span className="text-right font-semibold tabular-nums text-sm">{pct(r.share)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="min-w-0 grid grid-cols-2 gap-3 content-start">
+        {groups.map((g) => (
+          <div key={g.label} className="rounded-xl bg-mist/70 px-3 py-2.5">
+            <p className="font-serif text-2xl tabular-nums leading-none">{g.count}</p>
+            <p className="text-[11px] text-ink/60 mt-1 leading-tight">{g.label}</p>
+          </div>
         ))}
-      </ul>
-
-
+        <div className="rounded-xl bg-ink text-paper px-3 py-2.5">
+          <p className="font-serif text-2xl tabular-nums leading-none text-gold">{pct(trial.rate)}</p>
+          <p className="text-[11px] text-paper/65 mt-1 leading-tight">Accept a Habesha trial</p>
+        </div>
+        <div className="rounded-xl bg-ink text-paper px-3 py-2.5 col-span-2 sm:col-span-1 lg:col-span-2">
+          <p className="font-serif text-2xl tabular-nums leading-none text-gold">{pct(order.rate)}</p>
+          <p className="text-[11px] text-paper/65 mt-1 leading-tight">Consumers who would order Habesha draught</p>
+        </div>
+      </div>
     </section>
   )
 }

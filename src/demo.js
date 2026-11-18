@@ -1,5 +1,5 @@
 // Made-up data for demo builds only (vite --mode demo). Never shipped to BAs.
-import { BRANDS } from './config'
+import { GROUPS, QUESTIONS, SECTIONS, answersForSheet, isShown } from './questionnaire'
 
 // Made-up divisions and agents for the demo analysis
 const DEMO_GEO = [
@@ -32,44 +32,52 @@ function build() {
     return { id: `AA-${String(1000 + i)}`, name: `${pick(PLACES)} ${pick(KINDS)}`, ba: b, lat: home[b].lat + (rnd() - 0.5) * 0.02, lng: home[b].lng + (rnd() - 0.5) * 0.02, ...geo }
   })
 
-  // Draught: share of outlets pouring each brand, kegs a week, and price per mug
-  const draughtOdds = { BGI: 0.55, Heineken: 0.6, Dashen: 0.45, Habesha: 0.5, Anbesa: 0.15, Kegna: 0.1, Other: 0.08 }
-  const kegWeight = { BGI: 1.1, Heineken: 1.2, Dashen: 0.9, Habesha: 1.0, Anbesa: 0.5, Kegna: 0.4, Other: 0.4 }
-  const basePrice = { BGI: 60, Heineken: 70, Dashen: 60, Habesha: 60, Anbesa: 55, Kegna: 55, Other: 55 }
-  const POSM = ['TapTower', 'Mugs', 'DripTray', 'PriceBoard', 'Poster', 'Banner', 'LightBox']
-  const POSM_ODDS = [0.6, 0.55, 0.35, 0.3, 0.45, 0.25, 0.15]
+  // Answers to the Draught Market Visit Questionnaire, made up but shaped like the real thing
   const surveys = []
+  const weight = (opts, bias) => (bias && rnd() < 0.45 ? bias : pick(opts))
   outlets.forEach((o, i) => {
     const visits = rnd() < 0.15 ? 2 : 1
     for (let v = 0; v < visits; v++) {
       const ageDays = i < 14 && v === visits - 1 ? 0 : Math.floor(rnd() * 28) + 1
       const when = ageDays === 0 ? start.getTime() + (8 + rnd() * Math.max(1, (now - start.getTime()) / 3.6e6 - 8)) * 3.6e6 : now - ageDays * 864e5 - rnd() * 8 * 3.6e6
-      const none = rnd() < 0.07
-      const sold = none ? [] : BRANDS.filter((b) => rnd() < draughtOdds[b.key])
-      if (!none && !sold.length) sold.push(BRANDS[1])
-      const vol = Object.fromEntries(sold.map((b) => [b.key, Math.max(1, Math.round(kegWeight[b.key] * (2 + rnd() * 14)))]))
-      const order = [...sold].sort((a, b) => vol[b.key] - vol[a.key])
-      const known = rnd() < 0.7
-      const priced = rnd() < 0.85
-      const row = {
+      const group = weight(GROUPS, GROUPS[1])
+      const a = { group }
+      const skipped = []
+      SECTIONS.forEach((sec) => {
+        if (rnd() < 0.12) return skipped.push(sec.id)
+        QUESTIONS.filter((q) => q.section === sec.id).forEach((q) => {
+          if (!isShown(q, a)) return
+          if (q.type === 'single') {
+            a[q.key] = q.key === 'm_soldHabesha' ? (group === GROUPS[1] ? 'No' : 'Yes') : weight(q.options, q.options.includes('St. George') ? 'St. George' : null)
+            if (q.other && a[q.key] === q.other) a[q.key + 'Other'] = 'Partner'
+            if (q.follow && q.follow.when.includes(a[q.key])) a[q.follow.key] = pick(['March 2027', 'June 2027', 'End of 2027'])
+          } else if (q.type === 'multi') {
+            a[q.key] = rnd() < 0.3 ? ['None'] : q.options.filter((x) => x !== 'None' && rnd() < 0.4)
+            if (!a[q.key].length) a[q.key] = ['St. George']
+          } else if (q.type === 'numbers') {
+            q.fields.forEach((f, j) => {
+              if (rnd() < 0.15) return
+              const hb = f.label === 'Habesha'
+              a[f.key] = q.max ? Math.floor(rnd() * (hb ? 3 : 6)) : Math.round((hb ? (group === GROUPS[2] ? 8 : 2) : j === 0 ? 10 : 2) * (0.4 + rnd()))
+            })
+          } else if (q.type === 'rating') {
+            q.rows.forEach(([r]) => {
+              a[`${q.prefix}${r}SG`] = 3 + Math.floor(rnd() * 3)
+              a[`${q.prefix}${r}HB`] = 2 + Math.floor(rnd() * 3)
+            })
+          } else if (q.type === 'pair') {
+            a[q.parts[1].key] = pick(q.parts[1].options)
+            if (a[q.parts[1].key] !== 'None') a[q.parts[0].key] = pick(q.parts[0].options)
+          }
+        })
+      })
+      surveys.push({
         id: `SRV-${Math.round(when)}-${i}${v}`, date: new Date(Math.min(when, now - 60000)).toISOString(), baId: bas[o.ba].id, baName: bas[o.ba].name,
-        outletId: o.id, outletName: o.name, division: o.division, agent: o.agent, parentTerritory: o.parentTerritory, territory: o.territory, city: '', otherBrandName: '', reason: '', reasonOther: '',
+        outletId: o.id, outletName: o.name, area: pick(['Lebu', 'Kality', 'Ayat', 'Fiyelbet', 'Megenagna', 'Gerji']), division: o.division, agent: o.agent, parentTerritory: o.parentTerritory, territory: o.territory,
         lat: o.lat, lng: o.lng, accuracy: 10 + Math.round(rnd() * 25),
-        draught: none ? 'No' : 'Yes',
-        posm: none ? '' : rnd() < 0.58 ? 'Yes' : 'No',
-        dispenserHabesha: vol.Habesha ? pick(['Working', 'Working', 'Working', 'Working', 'Not cooling', 'Not working']) : '',
-      }
-      POSM.forEach((k, j) => {
-        row['posm' + k] = row.posm === '' ? '' : row.posm === 'Yes' && rnd() < POSM_ODDS[j] ? 1 : 0
+        group, skipped: SECTIONS.filter((x) => skipped.includes(x.id)).map((x) => x.short).join(', '),
+        ...answersForSheet(a, skipped),
       })
-      BRANDS.forEach((b) => {
-        const r = order.findIndex((x) => x.key === b.key)
-        row['rank' + b.key] = r < 0 ? '' : r + 1
-        row['kegs' + b.key] = r < 0 || !known || rnd() < 0.08 ? '' : vol[b.key]
-        row['price' + b.key] = r < 0 || !priced ? '' : basePrice[b.key] + 5 * Math.floor(rnd() * 4)
-      })
-      if (row.rankOther !== '') row.otherBrandName = pick(['Meta', 'Raya', 'Zebidar'])
-      surveys.push(row)
     }
   })
 
@@ -88,7 +96,7 @@ function build() {
     const mine = surveys.filter((s) => s.baId === ba.id).sort((a, b) => b.date.localeCompare(a.date))[0]
     presence.push({
       baId: ba.id, baName: ba.name, lastSeen: new Date(lastSeen).toISOString(), state: online ? 'online' : 'offline',
-      activity: online ? (i % 2 ? `Surveying ${mine?.outletName} (${mine?.outletId}), step ${2 + (i % 4)} of 5` : 'On home screen') : 'App closed or in background',
+      activity: online ? (i % 2 ? `Surveying ${mine?.outletName} (${mine?.outletId}), question ${2 + (i % 4)} of 10` : 'On home screen') : 'App closed or in background',
       lat: p.lat, lng: p.lng, accuracy: 12, locTime: new Date(lastSeen).toISOString(), device: 'Android demo',
     })
   })
@@ -123,7 +131,7 @@ function adminState() {
       { id: 'A-01', name: 'Demo Admin', username: 'admin', role: 'admin', active: true },
     ],
     outlets,
-    notices: [{ id: 'NTF-1', date: new Date(Date.now() - 864e5).toISOString(), fromName: 'Demo Admin', target: 'ba', kind: 'notice', title: 'Draught survey starts Monday', body: 'Cover every outlet with a tap in your area. Ask the bar for weekly kegs and the price per mug.' }],
+    notices: [{ id: 'NTF-1', date: new Date(Date.now() - 864e5).toISOString(), fromName: 'Demo Admin', target: 'ba', kind: 'notice', title: 'Draught market visits start Monday', body: 'Talk to the owner or manager first, then the bar staff, then one draught drinker.' }],
   }
   return admin
 }

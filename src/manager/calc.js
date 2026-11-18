@@ -1,4 +1,4 @@
-import { BRANDS, JUMP_KMH, ONLINE_MS } from '../config'
+import { JUMP_KMH, ONLINE_MS } from '../config'
 
 const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v))
 const text = (v) => String(v ?? '').replace(/^'/, '')
@@ -17,63 +17,38 @@ export function latestPerOutlet(surveys) {
 }
 
 /*
- * Draught market share, from the latest survey per outlet. Outlets that sell
- * no draught are counted apart and left out of every brand figure.
- *
- * Volume share   = brand kegs / all kegs, counted only in outlets where every
- *                  brand on tap has a keg count. Outlets with partial counts
- *                  are left out, because a blank is "unknown", and counting
- *                  the known brands alone would inflate whoever was counted.
- * On tap in      = draught outlets pouring the brand / all draught outlets
- * Ranked #1 in   = draught outlets where the brand is rank 1 / all draught outlets
- * Average rank   = mean rank across outlets that pour the brand
- * Average price  = mean birr per mug across outlets that gave a price
+ * Draught keg share from the manager's weekly keg counts (Q1.2), latest
+ * survey per outlet. Only outlets that gave a count for both St. George and
+ * Habesha are used; a blank "Other" counts as none. A blank is "unknown", so
+ * counting one brand alone would inflate it.
  */
-export const isDraught = (s) => text(s.draught) !== 'No'
+const KEG_BRANDS = [
+  { key: 'StGeorge', label: 'St. George', col: 'm_kegsStGeorge' },
+  { key: 'Habesha', label: 'Habesha', col: 'm_kegsHabesha', ours: true },
+  { key: 'Other', label: 'Other', col: 'm_kegsOther' },
+]
 
-export function marketShare(surveys) {
-  const latest = latestPerOutlet(surveys)
-  const outlets = latest.filter(isDraught)
-  const complete = outlets.filter((s) => {
-    const sold = BRANDS.filter((b) => num(s['rank' + b.key]) != null)
-    return sold.length > 0 && sold.every((b) => num(s['kegs' + b.key]) != null) && sold.some((b) => num(s['kegs' + b.key]) > 0)
+export function kegShare(surveys) {
+  const outlets = latestPerOutlet(surveys)
+  const counted = outlets.filter((s) => num(s.m_kegsStGeorge) != null && num(s.m_kegsHabesha) != null)
+  const total = counted.reduce((sum, s) => sum + KEG_BRANDS.reduce((a, b) => a + (num(s[b.col]) || 0), 0), 0)
+  const rows = KEG_BRANDS.map((b) => {
+    const kegs = counted.reduce((a, s) => a + (num(s[b.col]) || 0), 0)
+    return { ...b, kegs, share: total ? kegs / total : null }
   })
-  const totalKegs = complete.reduce((sum, s) => sum + BRANDS.reduce((a, b) => a + (num(s['kegs' + b.key]) || 0), 0), 0)
-  const n = outlets.length
-
-  const rows = BRANDS.map((b) => {
-    const ranks = outlets.map((s) => num(s['rank' + b.key])).filter((r) => r != null)
-    const kegs = complete.reduce((a, s) => a + (num(s['kegs' + b.key]) || 0), 0)
-    const prices = outlets.map((s) => (num(s['rank' + b.key]) != null ? num(s['price' + b.key]) : null)).filter((p) => p != null && p > 0)
-    return {
-      key: b.key,
-      label: b.label,
-      ours: !!b.ours,
-      kegs,
-      volumeShare: totalKegs ? kegs / totalKegs : null,
-      sellingIn: n ? ranks.length / n : null,
-      sellingCount: ranks.length,
-      topIn: n ? ranks.filter((r) => r === 1).length / n : null,
-      topCount: ranks.filter((r) => r === 1).length,
-      avgRank: ranks.length ? ranks.reduce((a, r) => a + r, 0) / ranks.length : null,
-      avgPrice: prices.length ? prices.reduce((a, p) => a + p, 0) / prices.length : null,
-      priceCount: prices.length,
-    }
-  })
-  return { outlets: n, noDraught: latest.length - n, volumeOutlets: complete.length, totalKegs, surveys: surveys.length, rows }
+  return { outlets: outlets.length, counted: counted.length, total, rows }
 }
 
-// Condition of the Habesha dispenser in outlets that pour Habesha (latest survey per outlet)
-export function dispenserStats(surveys, states) {
-  const asked = latestPerOutlet(surveys).filter((s) => isDraught(s) && text(s.dispenserHabesha))
-  const n = asked.length
-  return {
-    asked: n,
-    rows: states.map((d) => {
-      const c = asked.filter((s) => text(s.dispenserHabesha) === d.key).length
-      return { ...d, count: c, rate: n ? c / n : null }
-    }),
-  }
+// Share of answers that match `values`, among outlets that answered `key`
+export function answerRate(surveys, key, values) {
+  const asked = latestPerOutlet(surveys).filter((s) => text(s[key]).trim())
+  const yes = asked.filter((s) => values.includes(text(s[key]).trim()))
+  return { asked: asked.length, count: yes.length, rate: asked.length ? yes.length / asked.length : null }
+}
+
+export function groupCounts(surveys, groups) {
+  const outlets = latestPerOutlet(surveys)
+  return groups.map((g) => ({ label: g, count: outlets.filter((s) => text(s.group) === g).length, of: outlets.length }))
 }
 
 export function haversineKm(a, b) {
@@ -145,10 +120,13 @@ export function ago(fromMs, nowMs) {
 
 export const birr = (v) => (v == null ? '–' : `${Math.round(v)} birr`)
 export const pct = (v) => (v == null ? '–' : `${(v * 100).toFixed(1)}%`)
-export const topBrand = (s) => {
-  if (!isDraught(s)) return 'No draught'
-  const b = BRANDS.find((b) => num(s['rank' + b.key]) === 1)
-  if (!b) return '–'
-  return b.key === 'Other' && text(s.otherBrandName) ? text(s.otherBrandName) : b.label
+// One line per survey for lists and map pins: weekly kegs, or the outlet group
+export function surveyLine(s) {
+  const sg = num(s.m_kegsStGeorge)
+  const hb = num(s.m_kegsHabesha)
+  if (sg != null || hb != null) return `St. George ${sg ?? '–'} · Habesha ${hb ?? '–'} kegs`
+  return text(s.group) || 'No keg count'
 }
+const SHORT_GROUP = { 'Lost Habesha outlet': 'Lost', 'St. George-dominant (never Habesha)': 'St. George', 'Active Habesha outlet': 'Active' }
+export const groupShort = (g) => SHORT_GROUP[text(g)] || text(g)
 export { text, num }

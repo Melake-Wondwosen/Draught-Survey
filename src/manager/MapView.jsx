@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { isDraught, topBrand, text } from './calc'
+import { groupShort, surveyLine, text } from './calc'
 import { DEMO } from '../config'
 
 const ADDIS = [9.0108, 38.7613]
@@ -49,7 +49,7 @@ export default function MapView({ team, surveys, selectedId, onSelect, now }) {
       if (!s.lat || !s.lng || isNaN(lat) || isNaN(lng)) return
       bounds.push([lat, lng])
       L.circleMarker([lat, lng], { radius: 5, color: '#a9832f', weight: 1, fillColor: '#c9a24a', fillOpacity: 0.85 })
-        .bindPopup(`<b>${esc(text(s.outletName))}</b> ${esc(text(s.outletId))}<br>${esc(text(s.baName))} · ${new Date(s.date).toLocaleString()}<br>${isDraught(s) ? '#1: ' : ''}${esc(topBrand(s))}`)
+        .bindPopup(`<b>${esc(text(s.outletName))}</b> ${esc(text(s.outletId))}<br>${esc(text(s.baName))} · ${new Date(s.date).toLocaleString()}<br>${esc(groupShort(s.group))}${s.group ? ' · ' : ''}${esc(surveyLine(s))}`)
         .addTo(g)
     })
 

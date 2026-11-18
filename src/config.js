@@ -5,36 +5,7 @@ export const API_URL = 'https://script.google.com/macros/s/AKfycbyqUpaqYL5yrL9OQ
 // Demo builds (vite --mode demo) never call the server.
 export const DEMO = import.meta.env.MODE === 'demo'
 
-// Draught brands, in screen order. `key` becomes the sheet column suffix:
-// rankHabesha, kegsHabesha, priceHabesha, ... Keep this list the same as
-// SURVEY_BRANDS in apps-script/Survey.gs.
-export const BRANDS = [
-  { key: 'BGI', label: 'BGI' },
-  { key: 'Heineken', label: 'Heineken' },
-  { key: 'Dashen', label: 'Dashen' },
-  { key: 'Habesha', label: 'Habesha', ours: true },
-  { key: 'Anbesa', label: 'Anbesa' },
-  { key: 'Kegna', label: 'Kegna' },
-  { key: 'Other', label: 'Other' },
-]
-
-// Step 5: condition of the Habesha dispenser. Saved in the sheet as the label.
-export const DISPENSER_STATES = [
-  { key: 'Working', label: 'Working well' },
-  { key: 'Not cooling', label: 'Pours warm' },
-  { key: 'Not working', label: 'Not working' },
-]
-
-// Step 5: Habesha draught visibility. `key` becomes the sheet column: posmTapTower, ...
-export const VISIBILITY_ITEMS = [
-  { key: 'TapTower', label: 'Branded tap tower' },
-  { key: 'Mugs', label: 'Habesha mugs' },
-  { key: 'DripTray', label: 'Drip tray / bar mat' },
-  { key: 'PriceBoard', label: 'Draught price board' },
-  { key: 'Poster', label: 'Poster' },
-  { key: 'Banner', label: 'Banner' },
-  { key: 'LightBox', label: 'Light box' },
-]
+// The questions themselves are in src/questionnaire.js
 
 // BAs only see outlets whose coordinates are within this distance of their phone
 export const OUTLET_RANGE_M = 100

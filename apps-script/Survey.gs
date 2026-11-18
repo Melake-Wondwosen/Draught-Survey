@@ -1,5 +1,5 @@
 /**
- * Draught Survey backend. Standalone: it has its own spreadsheet and its own
+ * Draught Survey backend (Draught Market Visit Questionnaire). Standalone: it has its own spreadsheet and its own
  * Apps Script project, separate from the outlet survey and the wheel app.
  *
  * Setup:
@@ -52,23 +52,27 @@ var OUTLETS_SHEET = 'Outlets';
 var NOTICES_SHEET = 'Notifications';
 // Master outlet data. The BA types only the ID; everything else comes from here.
 var NATIONAL_SHEET = 'National Outlet';
-// Draught brands. Keep the same as BRANDS in src/config.js.
-var SURVEY_BRANDS = ['BGI', 'Heineken', 'Dashen', 'Habesha', 'Anbesa', 'Kegna', 'Other'];
-// Habesha draught visibility pieces. Each becomes a column: posmTapTower, posmMugs, ...
-var POSM_ITEMS = ['TapTower', 'Mugs', 'DripTray', 'PriceBoard', 'Poster', 'Banner', 'LightBox'];
-var DISPENSER_STATES = ['Working', 'Not cooling', 'Not working'];
+// Draught Market Visit Questionnaire. One column per answer, in this order.
+// Keep the same as ANSWER_KEYS in src/questionnaire.js.
+var ANSWER_KEYS = [
+  'm_decider', 'm_deciderOther', 'm_kegsStGeorge', 'm_kegsHabesha', 'm_kegsOther', 'm_sgReason', 'm_agreement',
+  'm_agreementEnds', 'm_soldHabesha', 'm_hbVsSg', 'm_hbStopReason', 'm_rateDemandSG', 'm_rateDemandHB', 'm_rateProfitSG',
+  'm_rateProfitHB', 'm_rateSupplySG', 'm_rateSupplyHB', 'm_rateQualitySG', 'm_rateQualityHB', 'm_rateServiceSG',
+  'm_rateServiceHB', 'm_relist', 'm_trial', 's_defaultServe', 's_askStGeorge', 's_askHabesha', 's_incentive',
+  's_easierPour', 's_stockoutStGeorge', 's_stockoutHabesha', 's_complaintBrand', 's_complaintIssue', 's_removedReason',
+  's_recommend', 'c_drinking', 'c_byName', 'c_reason', 'c_everHabesha', 'c_whyNot', 'c_rateTasteSG', 'c_rateTasteHB',
+  'c_rateFreshnessSG', 'c_rateFreshnessHB', 'c_rateValueSG', 'c_rateValueHB', 'c_rateImageSG', 'c_rateImageHB',
+  'c_ifUnavailable', 'c_wouldOrder'
+];
+// Answers that are numbers (kegs, counts, 1-5 ratings); every other answer is text
+var NUMBER_ANSWER = /^(m_kegs|s_ask|s_stockout|m_rate|c_rate)/;
 var ROLES = ['ba', 'manager', 'admin'];
 // A survey further than this from its outlet's coordinates raises an alert
 var OUTLET_RANGE_M = 100;
 
-var SURVEY_HEADERS = ['id', 'date', 'baId', 'baName', 'outletId', 'outletName', 'division', 'agent', 'parentTerritory', 'territory', 'city', 'draught']
-  .concat(SURVEY_BRANDS.map(function (b) { return 'rank' + b; }))
-  .concat(['otherBrandName'])
-  .concat(SURVEY_BRANDS.map(function (b) { return 'kegs' + b; }))
-  .concat(SURVEY_BRANDS.map(function (b) { return 'price' + b; }))
-  .concat(['dispenserHabesha', 'posm'])
-  .concat(POSM_ITEMS.map(function (k) { return 'posm' + k; }))
-  .concat(['reason', 'reasonOther', 'lat', 'lng', 'accuracy', 'distanceM', 'startedAt', 'startLat', 'startLng', 'startAccuracy']);
+var SURVEY_HEADERS = ['id', 'date', 'baId', 'baName', 'outletId', 'outletName', 'area', 'division', 'agent', 'parentTerritory', 'territory', 'group', 'skipped']
+  .concat(ANSWER_KEYS)
+  .concat(['lat', 'lng', 'accuracy', 'distanceM', 'startedAt', 'startLat', 'startLng', 'startAccuracy']);
 
 var SHEET_HEADERS = {
   Users: ['id', 'username', 'password', 'name', 'role', 'active'],
@@ -85,7 +89,8 @@ var SHEET_HEADERS = {
 var TEXT_COLS = ['id', 'username', 'password', 'name', 'active', 'key', 'date', 'baId', 'baName', 'outletId', 'outletName', 'otherBrandName', 'reason',
   'reasonOther', 'lastSeen', 'locTime', 'activity', 'device', 'detail', 'type', 'state', 'role', 'status',
   'requestedBy', 'requestedByName', 'createdAt', 'updatedAt', 'resolvedBy', 'resolvedAt',
-  'fromId', 'fromName', 'target', 'kind', 'title', 'body', 'division', 'agent', 'parentTerritory', 'territory', 'startedAt', 'posm', 'draught', 'dispenserHabesha'];
+  'fromId', 'fromName', 'target', 'kind', 'title', 'body', 'division', 'agent', 'parentTerritory', 'territory', 'startedAt', 'area', 'group', 'skipped']
+  .concat(ANSWER_KEYS.filter(function (k) { return !NUMBER_ANSWER.test(k); }));
 
 function surveyJson_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
@@ -415,7 +420,7 @@ function nationalLookup_(id) {
     return -1;
   };
   var c = { id: col(['id', 'outletid', 'accountid']), name: col(['account', 'outletname', 'accountname', 'name']),
-    division: col(['division']), agent: col(['agent']), parent: col(['parentterritory']), territory: col(['territory']) };
+    division: col(['division']), agent: col(['agent']), parent: col(['parentterritory']), territory: col(['territory', 'salesterritory']), area: col(['area']) };
   if (c.id < 0) return null;
 
   var found = sheet.getRange(2, c.id + 1, sheet.getLastRow() - 1, 1)
@@ -425,7 +430,7 @@ function nationalLookup_(id) {
     var row = sheet.getRange(found.getRow(), 1, 1, head.length).getValues()[0];
     var at = function (i) { return i < 0 ? '' : String(row[i]).trim(); };
     out = { outletId: id, outletName: at(c.name), division: at(c.division), agent: at(c.agent),
-      parentTerritory: at(c.parent), territory: at(c.territory) };
+      parentTerritory: at(c.parent), territory: at(c.territory), area: at(c.area) };
   }
   cache.put('nat_' + id, out ? JSON.stringify(out) : '-', 21600);
   return out;
@@ -458,7 +463,7 @@ function surveyOutletPack_(body) {
   var head = values[0].map(function (h) { return String(h).trim().toLowerCase().replace(/[\s_]/g, ''); });
   var at = function (names) { for (var i = 0; i < names.length; i++) { var x = head.indexOf(names[i]); if (x > -1) return x; } return -1; };
   var c = { id: at(['id', 'outletid', 'accountid']), name: at(['account', 'outletname', 'accountname', 'name']),
-    division: at(['division']), agent: at(['agent']), parent: at(['parentterritory']), territory: at(['territory']) };
+    division: at(['division']), agent: at(['agent']), parent: at(['parentterritory']), territory: at(['territory', 'salesterritory']), area: at(['area']) };
   if (c.id < 0) return { ok: true, version: key, division: '', dict: [], rows: [] };
 
   var mine = region && c.division > -1 && values.some(function (r, i) { return i > 0 && String(r[c.division]).trim().toLowerCase() === region; });
@@ -475,7 +480,7 @@ function surveyOutletPack_(body) {
     var id = normId_(row[c.id]);
     if (!id) continue;
     if (mine && String(row[c.division]).trim().toLowerCase() !== region) continue;
-    rows.push([id, String(cell(row, c.name)).trim(), ref(cell(row, c.division)), ref(cell(row, c.agent)), ref(cell(row, c.parent)), ref(cell(row, c.territory))]);
+    rows.push([id, String(cell(row, c.name)).trim(), ref(cell(row, c.division)), ref(cell(row, c.agent)), ref(cell(row, c.parent)), ref(cell(row, c.territory)), ref(cell(row, c.area))]);
   }
   return { ok: true, version: key, division: mine ? u.region : '', dict: dict, rows: rows };
 }
@@ -491,7 +496,7 @@ function findOutlet_(id) {
   if (n) return n;
   var o = activeOutletMap_()[normId_(id)];
   if (!o) return null;
-  return { outletId: normId_(id), outletName: String(o.outletName).replace(/^'/, ''), division: '', agent: '', parentTerritory: '', territory: '' };
+  return { outletId: normId_(id), outletName: String(o.outletName).replace(/^'/, ''), division: '', agent: '', parentTerritory: '', territory: '', area: '' };
 }
 
 function surveyLookupOutlet_(body) {
@@ -620,43 +625,30 @@ function surveyAddSurvey_(body) {
   if (!info && (nationalExists_() || Object.keys(master).length)) {
     return { ok: false, message: 'Outlet ID ' + outletId + ' is not in the outlet data.' };
   }
-  info = info || { outletName: String(s.outletName || ''), division: '', agent: '', parentTerritory: '', territory: '' };
+  info = info || { outletName: String(s.outletName || ''), division: '', agent: '', parentTerritory: '', territory: '', area: '' };
   var outletName = info.outletName;
   var start = s.startLocation || {};
-
-  var noDraught = s.noDraught === true;
-  var ranks = noDraught ? {} : (s.ranks || {});
-  var kegs = noDraught ? {} : (s.kegs || {});
-  var price = noDraught ? {} : (s.price || {});
   var loc = s.location || {};
   var row = {
     id: s.id || ('SRV-' + Date.now() + '-' + Utilities.getUuid().slice(0, 6).toUpperCase()),
     date: s.date || now_(),
     baId: s.baId, baName: s.baName || '',
-    outletId: outletId, outletName: outletName,
+    outletId: outletId, outletName: outletName, area: info.area || String(s.area || ''),
     division: info.division, agent: info.agent, parentTerritory: info.parentTerritory, territory: info.territory,
+    group: String(s.group || '').slice(0, 80), skipped: String(s.skipped || '').slice(0, 120),
     startedAt: s.startedAt || '', startLat: num_(start.lat), startLng: num_(start.lng), startAccuracy: num_(start.accuracy),
-    otherBrandName: s.otherBrandName || '',
-    reason: s.reason || '', reasonOther: s.reasonOther || '',
     lat: num_(loc.lat), lng: num_(loc.lng), accuracy: num_(loc.accuracy), distanceM: ''
   };
   // How far the phone was from the outlet's coordinates when the survey was sent
   if (outlet && coord_(outlet.lat, 90) !== '' && coord_(outlet.lng, 180) !== '' && row.lat !== '' && row.lng !== '') {
     row.distanceM = Math.round(distanceM_(row.lat, row.lng, Number(outlet.lat), Number(outlet.lng)));
   }
-  // draught: Yes / No. A "No" row has every brand column blank.
-  row.draught = noDraught ? 'No' : 'Yes';
-  row.dispenserHabesha = ranks.Habesha != null && DISPENSER_STATES.indexOf(s.dispenser) > -1 ? s.dispenser : '';
-  // posm: Yes / No. Each piece: 1 seen, 0 not seen, blank when not asked
-  var posmItems = s.posmItems || [];
-  row.posm = s.hasPosm === true ? 'Yes' : s.hasPosm === false ? 'No' : '';
-  POSM_ITEMS.forEach(function (k) {
-    row['posm' + k] = row.posm === '' ? '' : (s.hasPosm === true && posmItems.indexOf(k) > -1 ? 1 : 0);
-  });
-  SURVEY_BRANDS.forEach(function (b) {
-    row['rank' + b] = ranks[b] == null ? '' : Number(ranks[b]);  // blank = not on tap, never 0
-    row['kegs' + b] = kegs[b] == null ? '' : Number(kegs[b]);    // blank = unknown, never 0
-    row['price' + b] = price[b] == null ? '' : Number(price[b]); // birr per mug, blank = unknown
+  // Answers: numbers stay numbers, the rest is text. Blank = not asked or not answered.
+  var answers = s.answers || {};
+  ANSWER_KEYS.forEach(function (k) {
+    var v = answers[k];
+    if (v == null || v === '') { row[k] = ''; return; }
+    row[k] = NUMBER_ANSWER.test(k) ? num_(v) : String(v).slice(0, 300);
   });
 
   var duplicate = false;
@@ -820,6 +812,10 @@ function sheet_(name) {
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, want.length).setValues([want]).setFontWeight('bold');
     sheet.setFrozenRows(1);
+  } else if (sheet.getLastRow() === 1 && headers_(sheet).join('|') !== want.join('|')) {
+    // Only a header row and no data yet: lay the columns out fresh, in order
+    sheet.getRange(1, 1, 1, sheet.getMaxColumns()).clearContent();
+    sheet.getRange(1, 1, 1, want.length).setValues([want]).setFontWeight('bold');
   } else {
     // Add any new columns at the end. Existing columns are never moved or renamed.
     var have = headers_(sheet);

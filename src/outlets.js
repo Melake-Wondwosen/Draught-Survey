@@ -129,7 +129,7 @@ export function localOutlet(id) {
   const r = index().get(normOutletId(id))
   if (!r) return null
   const d = pack.dict
-  return { outletId: r[0], outletName: r[1], division: d[r[2]] || '', agent: d[r[3]] || '', parentTerritory: d[r[4]] || '', territory: d[r[5]] || '' }
+  return { outletId: r[0], outletName: r[1], division: d[r[2]] || '', agent: d[r[3]] || '', parentTerritory: d[r[4]] || '', territory: d[r[5]] || '', area: d[r[6]] || '' }
 }
 
 export const hasPack = () => (loadPack()?.rows?.length || 0) > 0

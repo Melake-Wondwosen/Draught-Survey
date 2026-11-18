@@ -6,15 +6,18 @@ Draught survey app for BAs, with a manager view and admin console in the same ap
 
 ## The survey
 
-| Step | Question | Saved as |
-|---|---|---|
-| 1 | Outlet search: type part of the name (or the ID), tap the outlet. The list comes from the National Outlet tab and is kept on the phone, so search works without signal | outletId, outletName, division, agent, parentTerritory, territory |
-| 2 | Draught brands on tap, tapped in order of draught sales. Or "This outlet sells no draught", which ends the survey here | draught (Yes/No), rankBGI ... rankOther, otherBrandName |
-| 3 | Kegs a week per brand (can skip) | kegsBGI ... kegsOther |
-| 4 | Price of one mug per brand, in birr (can skip) | priceBGI ... priceOther |
-| 5 | Habesha dispenser: working well, pours warm or not working (only when Habesha is on tap). Habesha draught visibility: yes/no and which pieces | dispenserHabesha, posm, posmTapTower, posmMugs, posmDripTray, posmPriceBoard, posmPoster, posmBanner, posmLightBox |
+The Draught Market Visit Questionnaire (Addis Ababa, high-end outlets), one question per screen. Tapping an answer moves on by itself; numbers, ratings and tick-all questions have a Next button.
 
-Brands, dispenser options and visibility pieces are set in `src/config.js`. If you change brands or visibility pieces, change `SURVEY_BRANDS` and `POSM_ITEMS` in `apps-script/Survey.gs` to match. New columns are added to the Surveys tab by themselves.
+1. Outlet: type part of the name and tap the outlet. Area, territory and parent territory come from the National Outlet tab.
+2. Outlet group: Lost Habesha outlet, St. George-dominant (never Habesha), or Active Habesha outlet.
+3. Outlet owner / manager, 10 questions (m_ columns).
+4. Bar staff, 8 questions (s_ columns).
+5. Draught consumer, 8 questions (c_ columns).
+6. Review, then Submit.
+
+Each section starts with a short intro and can be skipped when nobody is available ("skipped" column). Skip rules from the paper form are built in: "Did you sell Habesha draught before?" = No skips Q6 and Q7; an Active Habesha outlet skips "why was Habesha stopped"; the bar-staff question on why Habesha was removed shows only for lost outlets; "why did you stop or never drink it" is skipped for regular Habesha drinkers.
+
+Questions, options and skip rules live in `src/questionnaire.js`. The column list is `ANSWER_KEYS` there and in `apps-script/Survey.gs`; change both together. An empty Surveys tab gets the new columns laid out by itself on the first save.
 
 ## Before the first deploy
 
@@ -80,9 +83,9 @@ Every signed-in screen has a bell. BAs get admin messages, outlet approvals and 
 
 Managers sign in on the same URL and land on `/manager`. Admins can open it too from the console. It refreshes every minute and shows who is online, what each BA is doing, where they are, today's route for a selected BA, flags, market share and the latest surveys. It works on phone and PC.
 
-Draught market share uses the latest survey per outlet. Outlets marked "no draught" are counted on their own and left out of every brand figure. Volume share is each brand's kegs over all kegs, counted only in outlets where every brand on tap has a keg count. On tap in and Ranked #1 are shares of all draught outlets surveyed. Average rank is across outlets that pour the brand. Average price is the mean birr per mug across outlets that gave a price. Kegs are counted as kegs whatever their size.
+The manager view shows draught keg share (St. George, Habesha, Other) from the managers' weekly keg counts, outlet groups, the share of outlets that would accept a Habesha trial and of consumers who would order Habesha draught. All use the latest visit per outlet.
 
-The admin Analysis tab adds kegs a week, price per mug, Habesha draught visibility and Habesha dispenser condition (working well, pours warm, not working), with the same split by division, agent, territory and BA.
+The admin Analysis tab has the same figures by area, territory, group or BA, and a result card for every question: answer shares, average numbers, and average 1 to 5 ratings for St. George against Habesha.
 
 ## Limits worth knowing
 

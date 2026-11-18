@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { flushQueue } from '../api'
 import { getFix, latestFix, locationError, locationMessage } from '../location'
@@ -6,12 +6,33 @@ import { setActivity } from '../presence'
 import { RETURN_HOME_MS } from '../config'
 import { clearDraft, countDone, getDraft, getUser, pushQueue, setDraft } from '../storage'
 import { Button, Sheet, Spinner } from '../components/ui'
-import { BRANDS } from '../config'
-import { STEP_COUNT, StepKegs, StepOutlet, StepPrice, StepRank, StepVisibility, stepReady } from '../components/steps'
+import { StepOutlet } from '../components/steps'
+import Question from '../components/Question'
+import { GROUPS, QUESTIONS, SECTIONS, answered, answersForSheet, isShown, pruneHidden } from '../questionnaire'
 
-const EMPTY = { outletName: '', outletId: '', division: '', agent: '', parentTerritory: '', territory: '', area: '', picked: false, offline: false, noDraught: false, order: [], otherBrand: '', kegs: {}, price: {}, dispenser: '', hasPosm: null, posmItems: [] }
-const STEPS = [StepOutlet, StepRank, StepKegs, StepPrice, StepVisibility]
-const OURS_KEY = BRANDS.find((b) => b.ours).key
+const EMPTY = { outletName: '', outletId: '', division: '', agent: '', parentTerritory: '', territory: '', area: '', picked: false, offline: false, answers: {}, skipped: [] }
+const GROUP_Q = { key: 'group', type: 'single', q: 'Which group is this outlet in?', options: GROUPS }
+
+// The screens of one survey, worked out from the answers so far
+function buildSteps(d) {
+  const steps = [{ id: 'outlet', kind: 'outlet' }, { id: 'group', kind: 'group' }]
+  SECTIONS.forEach((s, si) => {
+    steps.push({ id: 'intro-' + s.id, kind: 'intro', section: s, n: si + 1 })
+    if (d.skipped.includes(s.id)) return
+    // Numbered as on the paper form, so a skipped question just jumps ahead
+    const all = QUESTIONS.filter((q) => q.section === s.id)
+    all.forEach((q, qi) => isShown(q, d.answers) && steps.push({ id: q.key, kind: 'question', q, section: s, n: qi + 1, of: all.length }))
+  })
+  steps.push({ id: 'review', kind: 'review' })
+  return steps
+}
+
+function ready(step, d) {
+  if (step.kind === 'outlet') return d.outletId.trim() !== '' && (d.picked || d.offline)
+  if (step.kind === 'group') return !!d.answers.group
+  if (step.kind === 'question') return answered(step.q, d.answers)
+  return true
+}
 
 function makeId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -21,18 +42,6 @@ function makeId() {
 }
 
 function buildRecord(d, user, location, start) {
-  const ranks = {}
-  const kegs = {}
-  const price = {}
-  const order = d.noDraught ? [] : d.order
-  order.forEach((key, i) => {
-    ranks[key] = i + 1
-    const k = d.kegs[key]
-    if (k !== '' && k != null) kegs[key] = Number(k)
-    const p = d.price[key]
-    if (p !== '' && p != null) price[key] = Number(p)
-  })
-  const otherRanked = order.includes('Other')
   return {
     id: makeId(),
     date: new Date().toISOString(),
@@ -46,40 +55,77 @@ function buildRecord(d, user, location, start) {
     agent: d.agent,
     parentTerritory: d.parentTerritory,
     territory: d.territory,
+    area: d.area,
     startedAt: start.at,
     startLocation: start.fix ? { lat: start.fix.lat, lng: start.fix.lng, accuracy: start.fix.accuracy } : null,
-    noDraught: !!d.noDraught,
-    ranks,
-    kegs,
-    price,
-    otherBrandName: otherRanked ? d.otherBrand.trim() : '',
-    dispenser: order.includes(OURS_KEY) ? d.dispenser : '',
-    hasPosm: d.noDraught ? null : d.hasPosm,
-    posmItems: !d.noDraught && d.hasPosm ? d.posmItems : [],
+    group: d.answers.group || '',
+    skipped: SECTIONS.filter((s) => d.skipped.includes(s.id)).map((s) => s.short).join(', '),
+    answers: answersForSheet(d.answers, d.skipped),
   }
+}
+
+const SECTION_ICON = {
+  manager: <><circle cx="12" cy="7.5" r="3.5" /><path d="M5 21c.8-4.2 3.6-6.5 7-6.5s6.2 2.3 7 6.5" /><path d="M12 14.5l-1.2 2.3L12 21l1.2-4.2z" /></>,
+  staff: <><path d="M7 21h10" /><path d="M12 21V10" /><path d="M8 10h8V6.5a4 4 0 0 0-8 0z" /><path d="M16 8h3v3" /></>,
+  consumer: <><path d="M6 6h9v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" /><path d="M15 9h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2" /><path d="M6 9.5h9" /></>,
 }
 
 export default function Survey() {
   const navigate = useNavigate()
   // Pick up a survey that was left part-way
-  const [draft] = useState(getDraft)
-  const [step, setStep] = useState(draft?.step ?? 0)
-  const [maxStep, setMaxStep] = useState(draft?.maxStep ?? draft?.step ?? 0)
-  const [dir, setDir] = useState(1)
+  const [draft] = useState(() => {
+    const d = getDraft()
+    return d && d.stepId ? d : null
+  })
   const [data, setData] = useState(() => (draft ? { ...EMPTY, ...draft.data } : EMPTY))
+  const [stepId, setStepId] = useState(draft?.stepId ?? 'outlet')
+  const [dir, setDir] = useState(1)
   const [status, setStatus] = useState('idle') // idle | sending | saved | queued
+  const [error, setError] = useState('')
+  const [advance, setAdvance] = useState(0)
   const scroller = useRef(null)
 
-  const set = (patch) => setData((d) => ({ ...d, ...patch }))
-  const ready = stepReady[step](data)
-  const Step = STEPS[step]
-  // A "no draught" outlet finishes at step 2
-  const lastStep = data.noDraught ? 1 : STEPS.length - 1
-  const last = step === lastStep
+  const steps = useMemo(() => buildSteps(data), [data])
+  let index = steps.findIndex((s) => s.id === stepId)
+  if (index < 0) index = 0
+  const step = steps[index]
+  const isLast = step.kind === 'review'
+  const canGo = ready(step, data)
 
-  const [error, setError] = useState('')
+  // Outlet fields sit on the survey; answers go through pruneHidden so a changed
+  // answer clears the questions it no longer leads to
+  const setOutlet = (patch) => setData((d) => ({ ...d, ...patch }))
+  const setAnswer = (patch) => setData((d) => ({ ...d, answers: pruneHidden({ ...d.answers, ...patch }) }))
 
-  // Start time and location are taken the moment the survey opens
+  function goTo(id, d) {
+    const to = steps.findIndex((s) => s.id === id)
+    setDir(d ?? (to >= index ? 1 : -1))
+    setStepId(id)
+  }
+  const next = () => index < steps.length - 1 && goTo(steps[index + 1].id, 1)
+  const back = () => index > 0 && goTo(steps[index - 1].id, -1)
+
+  // A single-choice tap moves on by itself, after the tick has shown
+  useEffect(() => {
+    if (!advance) return
+    const t = setTimeout(next, 320)
+    return () => clearTimeout(t)
+  }, [advance])
+
+  function startSection(id) {
+    if (!data.skipped.includes(id)) return next()
+    // Un-skipping adds the section's questions back; move on once they're in
+    setData((d) => ({ ...d, skipped: d.skipped.filter((x) => x !== id) }))
+    setAdvance((n) => n + 1)
+  }
+  function skipSection(id) {
+    const after = steps.slice(index + 1).find((s) => s.kind !== 'question' || s.section.id !== id)
+    setData((d) => ({ ...d, skipped: d.skipped.includes(id) ? d.skipped : [...d.skipped, id] }))
+    setDir(1)
+    setStepId(after ? after.id : 'review')
+  }
+
+  // Start time and location are taken the moment the survey opens.
   // A resumed survey keeps its original start time and location.
   const start = useRef(draft?.start || { at: new Date().toISOString(), fix: null })
   const [startFix, setStartFix] = useState(start.current.fix)
@@ -112,19 +158,22 @@ export default function Survey() {
   }, [])
   const startTime = new Date(start.current.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
+  const where =
+    step.kind === 'question' ? `${step.section.short} · question ${step.n} of ${step.of}` : step.kind === 'intro' ? step.section.title : step.kind === 'review' ? 'Ready to send' : step.kind === 'group' ? 'Outlet group' : 'Outlet'
+
   // Save progress after every change
-  const touched = step > 0 || JSON.stringify(data) !== JSON.stringify(EMPTY)
+  const touched = stepId !== 'outlet' || JSON.stringify(data) !== JSON.stringify(EMPTY)
   const finished = useRef(false)
   useEffect(() => {
     if (finished.current || !touched) return
-    setDraft({ baId: getUser()?.id, data, step, maxStep, start: start.current, savedAt: Date.now() })
-  }, [data, step, maxStep, startFix])
+    setDraft({ baId: getUser()?.id, data, stepId, where, start: start.current, savedAt: Date.now() })
+  }, [data, stepId, startFix])
 
   useEffect(() => {
     scroller.current?.scrollTo(0, 0)
-    const where = data.outletId.trim() ? `${data.outletName.trim() || 'outlet'} (${data.outletId.trim()})` : ''
-    setActivity(step === 0 ? 'Starting a survey' : `Surveying ${where}, step ${step + 1} of ${STEP_COUNT}`, step === 1)
-  }, [step])
+    const outlet = data.outletId.trim() ? ` at ${data.outletName.trim() || 'outlet'} (${data.outletId.trim()})` : ''
+    setActivity(stepId === 'outlet' ? 'Starting a survey' : `Surveying${outlet}: ${where}`, stepId === 'group')
+  }, [stepId])
 
   // In-app dialog, since some browsers and embedded views block window.confirm
   const [leaving, setLeaving] = useState(false)
@@ -136,21 +185,6 @@ export default function Survey() {
     finished.current = true
     clearDraft()
     navigate('/', { replace: true })
-  }
-
-  function go(to) {
-    setDir(to > step ? 1 : -1)
-    setStep(to)
-    setMaxStep((m) => Math.max(m, to))
-  }
-  // A step can be opened from the progress bar once it was reached and every
-  // step before it is still answered
-  const canJump = (i) => i !== step && i <= maxStep && i <= lastStep && STEPS.slice(0, i).every((_, j) => stepReady[j](data))
-
-  // Kegs and price can be skipped when the outlet won't say
-  function skipStep() {
-    set(step === 2 ? { kegs: {} } : { price: {} })
-    go(step + 1)
   }
 
   // Submitting never waits on the network. The survey goes into the phone's
@@ -201,44 +235,54 @@ export default function Survey() {
     )
   }
 
+  const progress = steps.length > 1 ? index / (steps.length - 1) : 0
+  const sectionNow = step.section?.id
+
   return (
     <main className="h-full flex flex-col safe-top anim-fade">
       <header className="bg-ink text-paper px-4 pt-3 pb-4">
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-wider text-gold font-semibold">Draught Survey</p>
-            <button type="button" onClick={abandon} className="w-10 h-10 -mr-2 rounded-full text-2xl text-paper/80" aria-label="Abandon survey">
+            <p className="text-xs uppercase tracking-wider text-gold font-semibold">Draught Market Visit</p>
+            <button type="button" onClick={abandon} className="w-10 h-10 -mr-2 rounded-full text-2xl text-paper/80" aria-label="Leave survey">
               ×
             </button>
           </div>
-          <p className="text-xs text-paper/60 -mt-1 mb-2">
+          <p className="text-xs text-paper/60 -mt-1 mb-3 truncate">
             Started {startTime}
             <span className="text-paper/30"> · </span>
             {startLoc === 'ok' ? <span className="text-gold">Location ±{startFix.accuracy} m</span> : startLoc === 'finding' ? 'Getting location…' : 'No location'}
           </p>
-          <div className="grid gap-1.5 mt-1" style={{ gridTemplateColumns: `repeat(${STEPS.length}, minmax(0, 1fr))` }}>
-            {STEPS.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => canJump(i) && go(i)}
-                disabled={!canJump(i) || status === 'sending'}
-                aria-label={`Go to step ${i + 1}`}
-                className="py-2 -my-2 disabled:cursor-default"
-              >
-                <span className="block h-1.5 rounded-full bg-paper/20 overflow-hidden">
-                  <span className={`block h-full rounded-full transition-[width] duration-500 ease-[cubic-bezier(.22,1,.36,1)] ${i <= step ? 'bg-gold' : i <= maxStep ? 'bg-gold/40' : ''}`} style={{ width: i <= maxStep ? '100%' : '0%' }} />
+          <div className="h-1.5 rounded-full bg-paper/15 overflow-hidden">
+            <div className="h-full rounded-full gold-gradient transition-[width] duration-500 ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: `${Math.max(4, progress * 100)}%` }} />
+          </div>
+          <div className="mt-2.5 grid grid-cols-3 gap-2 text-[11px] font-semibold uppercase tracking-wider">
+            {SECTIONS.map((s) => {
+              const skipped = data.skipped.includes(s.id)
+              const sIndex = steps.findIndex((x) => x.id === 'intro-' + s.id)
+              const state = sectionNow === s.id ? 'now' : index > sIndex && sIndex >= 0 ? 'done' : 'todo'
+              return (
+                <span key={s.id} className={`truncate transition-colors ${state === 'now' ? 'text-gold' : state === 'done' ? 'text-paper/70' : 'text-paper/30'} ${skipped ? 'line-through' : ''}`}>
+                  {s.short}
                 </span>
-              </button>
-            ))}
+              )
+            })}
           </div>
         </div>
       </header>
 
       <div ref={scroller} className="flex-1 overflow-y-auto">
-        <div className="max-w-md mx-auto px-5 py-6">
-          <div key={step} className={dir > 0 ? 'anim-slide-r' : 'anim-slide-l'}>
-            <Step data={data} set={set} />
+        <div className="max-w-md mx-auto px-5 py-7">
+          <div key={step.id} className={dir > 0 ? 'anim-slide-r' : 'anim-slide-l'}>
+            {step.kind === 'outlet' && <StepOutlet data={data} set={setOutlet} />}
+            {step.kind === 'group' && (
+              <Question q={GROUP_Q} a={data.answers} set={setAnswer} eyebrow="Outlet group" onPicked={() => setAdvance((n) => n + 1)} />
+            )}
+            {step.kind === 'question' && (
+              <Question q={step.q} a={data.answers} set={setAnswer} eyebrow={`${step.section.short} · ${step.n} of ${step.of}`} onPicked={() => setAdvance((n) => n + 1)} />
+            )}
+            {step.kind === 'intro' && <Intro step={step} skipped={data.skipped.includes(step.section.id)} onSkip={() => skipSection(step.section.id)} />}
+            {step.kind === 'review' && <Review data={data} steps={steps} onEdit={(id) => goTo(id, -1)} />}
           </div>
         </div>
       </div>
@@ -247,26 +291,23 @@ export default function Survey() {
         <div className="max-w-md mx-auto space-y-2">
           {error && <p className="rounded-xl bg-paper border border-ink/15 border-l-4 border-l-gold text-ink text-sm px-4 py-3">{error}</p>}
           <div className="flex gap-3">
-            {step > 0 && (
-              <Button variant="ghost" className="w-auto! flex-[0_0_32%]" onClick={() => go(step - 1)} disabled={status === 'sending'}>
+            {index > 0 && (
+              <Button variant="ghost" className="w-auto! flex-[0_0_32%]" onClick={back} disabled={status === 'sending'}>
                 Back
               </Button>
             )}
-            {last ? (
-              <Button variant="gold" onClick={submit} disabled={!ready || status === 'sending'}>
-                {status === 'sending' ? <Spinner /> : 'Submit'}
+            {isLast ? (
+              <Button variant="gold" onClick={submit} disabled={status === 'sending'}>
+                {status === 'sending' ? <Spinner /> : 'Submit survey'}
               </Button>
+            ) : step.kind === 'intro' ? (
+              <Button onClick={() => startSection(step.section.id)}>Start</Button>
             ) : (
-              <Button onClick={() => go(step + 1)} disabled={!ready}>
-                Continue
+              <Button onClick={next} disabled={!canGo}>
+                {step.kind === 'question' && steps[index + 1]?.kind !== 'question' ? 'Finish section' : 'Next'}
               </Button>
             )}
           </div>
-          {(step === 2 || step === 3) && (
-            <Button variant="quiet" onClick={skipStep}>
-              Skip
-            </Button>
-          )}
         </div>
       </footer>
       {leaving && (
@@ -291,5 +332,77 @@ export default function Survey() {
         </Sheet>
       )}
     </main>
+  )
+}
+
+function Intro({ step, skipped, onSkip }) {
+  const s = step.section
+  return (
+    <div className="pt-4 text-center">
+      <div className="anim-pop mx-auto w-20 h-20 rounded-full bg-ink text-gold flex items-center justify-center shadow-lg">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          {SECTION_ICON[s.id]}
+        </svg>
+      </div>
+      <p className="anim-rise mt-6 text-xs uppercase tracking-[0.16em] text-gold-dark font-semibold" style={{ animationDelay: '80ms' }}>
+        Section {step.n} of {SECTIONS.length}
+      </p>
+      <h2 className="anim-rise font-serif text-[30px] leading-tight mt-1.5" style={{ animationDelay: '120ms' }}>
+        {s.title}
+      </h2>
+      <p className="anim-rise text-ink/60 mt-3 leading-relaxed max-w-xs mx-auto" style={{ animationDelay: '160ms' }}>
+        {s.intro}
+      </p>
+      <p className="anim-rise text-sm text-ink/45 mt-2" style={{ animationDelay: '200ms' }}>
+        {QUESTIONS.filter((q) => q.section === s.id).length} questions
+      </p>
+      {skipped && <p className="anim-rise mt-5 text-sm font-semibold text-gold-dark">Skipped. Press Start to answer it after all.</p>}
+      <button type="button" onClick={onSkip} className="anim-rise mt-8 text-sm text-ink/55 underline underline-offset-4 min-h-[44px] px-3 hover:text-ink" style={{ animationDelay: '240ms' }}>
+        {s.skipLabel}
+      </button>
+    </div>
+  )
+}
+
+function Review({ data, steps, onEdit }) {
+  return (
+    <div>
+      <div className="mb-6 anim-rise">
+        <p className="text-xs uppercase tracking-[0.14em] text-gold-dark font-semibold">Last step</p>
+        <h2 className="font-serif text-[28px] mt-1.5 leading-tight">Ready to send</h2>
+        <p className="text-sm text-ink/55 mt-1.5">Check the outlet and the sections, then submit.</p>
+      </div>
+      <div className="rounded-2xl bg-ink text-paper p-5 anim-pop">
+        <p className="font-serif text-xl leading-tight">{data.outletName || 'Outlet'}</p>
+        <p className="text-gold text-sm font-semibold mt-1">
+          {data.outletId}
+          {data.territory && <span className="text-paper/60 font-normal"> · {data.territory}</span>}
+        </p>
+        <p className="text-sm text-paper/75 mt-3 pt-3 border-t border-paper/15">{data.answers.group || 'No group picked'}</p>
+      </div>
+      <ul className="mt-4 space-y-2.5 stagger">
+        {SECTIONS.map((s, i) => {
+          const skipped = data.skipped.includes(s.id)
+          const qs = steps.filter((x) => x.kind === 'question' && x.section.id === s.id)
+          const done = qs.filter((x) => answered(x.q, data.answers)).length
+          return (
+            <li key={s.id} style={{ '--i': i }}>
+              <button type="button" onClick={() => onEdit('intro-' + s.id)} className="pick w-full flex items-center gap-3 rounded-2xl bg-white border border-ink/12 px-4 py-3.5 text-left hover:border-gold/70">
+                <span className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center ${skipped ? 'bg-mist text-ink/40' : 'gold-gradient text-ink'}`}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    {SECTION_ICON[s.id]}
+                  </svg>
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-semibold">{s.title}</span>
+                  <span className="block text-xs text-ink/55">{skipped ? s.skipLabel : `${done} of ${qs.length} answered`}</span>
+                </span>
+                <span className="text-sm text-gold-dark font-semibold">Edit</span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }

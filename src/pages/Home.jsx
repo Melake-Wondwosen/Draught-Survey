@@ -7,7 +7,6 @@ import { clearPack, syncOutlets, syncPack } from '../outlets'
 import { setActivity, stopPresence } from '../presence'
 import { clearDraft, clearUser, getDoneCounts, getDraft, getLastSync, getQueue, getQueueWhy, getUser, setLastSync } from '../storage'
 import Bell from '../components/Bell'
-import { STEP_COUNT } from '../components/steps'
 import { Button, Emblem, Notice, Pattern, Sheet, SignOutButton } from '../components/ui'
 
 const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -105,7 +104,7 @@ export default function Home() {
                 <span className="flex flex-col items-center leading-tight py-1">
                   <span>Continue survey</span>
                   <span className="text-sm font-normal opacity-75 mt-0.5">
-                    {draft.data?.outletId ? `${draft.data.outletName || 'Outlet'} (${draft.data.outletId}) · ` : ''}Step {(draft.step ?? 0) + 1} of {STEP_COUNT}
+                    {draft.data?.outletId ? `${draft.data.outletName || 'Outlet'} · ` : ''}{draft.where || 'In progress'}
                   </span>
                 </span>
               </Button>
