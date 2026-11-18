@@ -9,16 +9,25 @@ Draught survey app for BAs, with a manager view and admin console in the same ap
 The Draught Market Visit Questionnaire (Addis Ababa, high-end outlets), one question per screen. Tapping an answer moves on by itself; numbers, ratings and tick-all questions have a Next button.
 
 1. Outlet: type part of the name and tap the outlet. Area, territory and parent territory come from the National Outlet tab.
-2. Outlet group: Lost Habesha outlet, St. George-dominant (never Habesha), or Active Habesha outlet.
-3. Outlet observation, 7 questions the BA answers by looking (o_ columns): tables and draught drinkers now, age group, men or women, groups or alone, men and women waiting tables, draught or bottled (RGB) and why, busiest time.
-4. Outlet owner / manager, 9 questions (m_ columns).
-5. Bar staff, 8 questions (s_ columns), including which brand they personally like and why.
-6. Draught consumer, 8 questions (c_ columns), ending with the invite to the paid consumer Q&A. If they agree, name and phone are required and a best day and time is optional.
-7. Review, then Submit.
+2. Outlet group: Lost Habesha outlet, St. George-dominant (never Habesha), or Active Habesha outlet. The manager questions change with the group.
+3. Outlet observation, 9 questions the BA answers by looking (o_ columns): tables and draught drinkers now, brands on tap, a quality check of each brand on tap (temperature, freshness, pour and head, foam waste, 1 to 5), age group, men or women, groups or alone, men and women waiting tables, draught or bottled (RGB) and why, busiest time.
+4. Outlet owner / manager (m_ columns): who decides, weekly kegs by brand, keg and glass prices, then by group:
+   - Lost: what keeps St. George, what St. George has given the outlet, agreement, when Habesha stopped, the real reason (with their words), what it would take to win them back, Habesha kegs a week they could sell, trial. 11 questions.
+   - St. George-dominant: the same without the two "lost" questions. 9 questions.
+   - Active Habesha: agreement, what would make them sell more Habesha, kegs they could sell. 7 questions.
+   "What keeps St. George" and "what would win the business" are tick-all, then the main one.
+5. Bar staff, 10 questions (s_ columns), including their favourite brand and why, glasses lost to foam per keg, and when the lines were last cleaned.
+6. Draught consumer, 8 questions (c_ columns), ending with the invite to the paid consumer Q&A (name and phone required if they agree).
+7. Your assessment, 2 questions the BA answers alone (a_ columns): chance of conversion (High, Medium, Low) and the biggest barrier.
+8. Review, then Submit.
 
-Each section starts with a short intro and can be skipped when nobody is available ("skipped" column). Skip rules: "Did you sell Habesha draught before?" = No skips why it was stopped, as does an Active Habesha outlet; the bar-staff question on why Habesha was removed shows only for lost outlets; "why did you stop or never drink it" is skipped for regular Habesha drinkers; "why" after draught or bottled is skipped for "About the same"; the complaint brand is skipped when there is no complaint.
+Each section starts with a short intro and can be skipped when nobody is available ("skipped" column).
 
-The admin Analysis tab lists everyone who agreed to the paid Q&A (name, phone, best time, outlet, BA) with a Copy for Excel button.
+## Opportunity
+
+For each outlet (latest visit): gain = Habesha kegs a week they could sell, less what they sell now. Expected gain = gain x the BA's chance of conversion (High 70%, Medium 40%, Low 10%; no assessment counts as Medium). The admin Analysis tab ranks outlets by expected gain and shows totals; the manager view shows the total.
+
+The admin Analysis tab also lists everyone who agreed to the paid Q&A (name, phone, best time, outlet, BA) with a Copy for Excel button.
 
 Questions, options and skip rules live in `src/questionnaire.js`. The column list is `ANSWER_KEYS` there and in `apps-script/Survey.gs`; change both together. An empty Surveys tab gets the new columns laid out by itself on the first save.
 

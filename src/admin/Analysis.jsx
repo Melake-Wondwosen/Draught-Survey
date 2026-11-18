@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { managerData } from '../api'
-import { GROUPS, HB, QUESTIONS, SECTIONS, SG } from '../questionnaire'
-import { answerRate, groupCounts, groupShort, kegShare, latestPerOutlet, num, pct, text } from '../manager/calc'
+import { GROUPS, HB, QUESTIONS, SECTIONS, SG, qTitle } from '../questionnaire'
+import { answerRate, groupCounts, groupShort, kegShare, latestPerOutlet, num, opportunity, pct, text } from '../manager/calc'
 import { Notice, Spinner } from '../components/ui'
 
 const PERIODS = [
@@ -80,6 +80,7 @@ export default function Analysis() {
   const trial = useMemo(() => answerRate(rows, 'm_trial', TRIAL_YES), [rows])
   const order = useMemo(() => answerRate(rows, 'c_wouldOrder', ['Yes']), [rows])
   const bas = useMemo(() => new Set(rows.map((s) => text(s.baId))).size, [rows])
+  const opp = useMemo(() => opportunity(rows), [rows])
   const hbShare = share.rows.find((r) => r.ours)?.share
 
   const splitRows = useMemo(() => {
@@ -164,6 +165,8 @@ export default function Analysis() {
             <p className="rounded-2xl bg-white border border-ink/10 p-8 text-center text-ink/60">No surveys in this period.</p>
           ) : (
             <>
+              <Opportunity opp={opp} />
+
               <div className="grid lg:grid-cols-2 gap-4">
                 <Card title="Draught keg share" sub={`${share.counted} of ${share.outlets} outlets gave keg counts · ${fmt(share.total)} kegs a week`}>
                   <Bars rows={share.rows.map((r) => ({ label: r.label, rate: r.share, extra: `${fmt(r.kegs)} kegs`, gold: r.ours }))} />
@@ -257,7 +260,22 @@ function QuestionCard({ q, n, outlets }) {
   if (q.type === 'single' || q.type === 'multi') {
     const r = optionCounts(outlets, q.key, q.options, q.type === 'multi')
     base = r.asked
-    body = <Bars rows={[...r.rows].sort((a, b) => b.count - a.count).map((x) => ({ label: x.label, rate: x.rate, extra: `${x.count}` }))} wide />
+    const ticks = <Bars rows={[...r.rows].sort((a, b) => b.count - a.count).map((x) => ({ label: x.label, rate: x.rate, extra: `${x.count}` }))} wide />
+    if (q.main) {
+      const m = optionCounts(outlets, q.main.key, q.options.filter((o) => o !== q.none))
+      body = (
+        <div className="space-y-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-gold-dark mb-1.5">Matters most</p>
+            <Bars rows={[...m.rows].filter((x) => x.count).sort((a, b) => b.count - a.count).map((x) => ({ label: x.label, rate: x.rate, extra: `${x.count}`, gold: true }))} wide />
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-gold-dark mb-1.5">Ticked at all</p>
+            {ticks}
+          </div>
+        </div>
+      )
+    } else body = ticks
   } else if (q.type === 'pair') {
     const parts = q.parts.map((p) => ({ p, r: optionCounts(outlets, p.key, p.options) }))
     base = parts[0].r.asked
@@ -319,7 +337,7 @@ function QuestionCard({ q, n, outlets }) {
       <div className="flex items-start gap-3 mb-3">
         <span className="w-7 h-7 shrink-0 rounded-full bg-ink text-gold text-xs font-bold flex items-center justify-center">{n}</span>
         <div className="min-w-0">
-          <p className="font-semibold leading-snug">{q.q}</p>
+          <p className="font-semibold leading-snug">{qTitle(q)}</p>
           <p className="text-xs text-ink/50 mt-0.5">{base ? `${base} outlets answered` : 'No answers yet'}</p>
         </div>
       </div>
@@ -431,5 +449,74 @@ function Invites({ rows }) {
         </div>
       )}
     </Card>
+  )
+}
+
+// Weekly Habesha keg gain per outlet: what the manager says they could sell,
+// less what they sell now, then weighted by the BA's chance of conversion
+function Opportunity({ opp }) {
+  const [all, setAll] = useState(false)
+  const list = all ? opp.rows : opp.rows.slice(0, 12)
+  return (
+    <Card title="Habesha keg opportunity" sub={`${opp.outlets} outlets gave a Habesha estimate · kegs a week · latest visit each`}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <Mini label="Habesha now" value={fmt(opp.now)} />
+        <Mini label="Could sell" value={fmt(opp.potential)} />
+        <Mini label="Gain" value={`+${fmt(opp.gain)}`} />
+        <Mini label="Expected gain" value={`+${fmt(opp.expected)}`} gold />
+      </div>
+      <p className="text-xs text-ink/50 mb-2">Expected gain = gain x chance of conversion (High 70%, Medium 40%, Low 10%).</p>
+      {!opp.rows.length ? (
+        <p className="text-sm text-ink/55">No estimates yet.</p>
+      ) : (
+        <>
+          <div className="max-h-[480px] overflow-y-auto">
+            <table className="w-full text-sm table-fixed">
+              <thead className="sticky top-0 bg-white">
+                <tr className="text-[11px] uppercase tracking-wider text-gold-dark text-left">
+                  <th className="py-2 px-1 font-semibold w-[34%]">Outlet</th>
+                  <th className="py-2 px-1 font-semibold hidden md:table-cell">Group</th>
+                  <th className="py-2 px-1 font-semibold text-right hidden sm:table-cell">All kegs</th>
+                  <th className="py-2 px-1 font-semibold text-right">Now</th>
+                  <th className="py-2 px-1 font-semibold text-right">Could</th>
+                  <th className="py-2 px-1 font-semibold text-right hidden sm:table-cell">Chance</th>
+                  <th className="py-2 px-1 font-semibold text-right">Expected</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((r) => (
+                  <tr key={text(r.s.id)} className="border-t border-ink/8">
+                    <td className="py-2.5 px-1 truncate" title={text(r.s.outletName)}>
+                      <span className="font-semibold">{text(r.s.outletName)}</span>
+                      <span className="block text-[11px] text-ink/50 truncate">{text(r.s.area) || text(r.s.territory)}{text(r.s.a_barrier) ? ` · ${text(r.s.a_barrier)}` : ''}</span>
+                    </td>
+                    <td className="py-2.5 px-1 hidden md:table-cell">{groupShort(r.s.group)}</td>
+                    <td className="py-2.5 px-1 text-right tabular-nums hidden sm:table-cell">{fmt(r.total)}</td>
+                    <td className="py-2.5 px-1 text-right tabular-nums">{fmt(r.now)}</td>
+                    <td className="py-2.5 px-1 text-right tabular-nums">{fmt(r.potential)}</td>
+                    <td className="py-2.5 px-1 text-right hidden sm:table-cell">{r.likelihood || '–'}</td>
+                    <td className="py-2.5 px-1 text-right tabular-nums font-semibold text-gold-dark">+{r.expected.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {opp.rows.length > 12 && (
+            <button type="button" onClick={() => setAll(!all)} className="mt-3 text-sm font-semibold text-gold-dark link-hover">
+              {all ? 'Show top 12' : `Show all ${opp.rows.length}`}
+            </button>
+          )}
+        </>
+      )}
+    </Card>
+  )
+}
+
+function Mini({ label, value, gold }) {
+  return (
+    <div className={`rounded-xl px-3 py-2.5 ${gold ? 'bg-ink text-paper' : 'bg-mist/70'}`}>
+      <p className={`font-serif text-2xl tabular-nums leading-none ${gold ? 'text-gold' : ''}`}>{value}</p>
+      <p className={`text-[11px] mt-1 ${gold ? 'text-paper/65' : 'text-ink/60'}`}>{label}</p>
+    </div>
   )
 }

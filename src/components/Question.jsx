@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import { HB, SG, partShown } from '../questionnaire'
+import { useEffect, useRef } from 'react'
+import { BRAND_CODE, followOn, partShown, qText, ratingBrands } from '../questionnaire'
 import { inputClass } from './ui'
 
 // One question on one screen. `onPicked` runs after a single-choice tap, so the
@@ -41,10 +41,11 @@ function Option({ label, on, onClick, square, i }) {
 function Single({ q, a, set, onPicked }) {
   const value = a[q.key]
   const showOther = q.other && value === q.other
-  const showFollow = q.follow && q.follow.when.includes(value)
+  const showFollow = followOn(q, a)
   function choose(v) {
     set({ [q.key]: v })
-    const needsMore = (q.other && v === q.other) || (q.follow && q.follow.when.includes(v))
+    // Stay on the screen when the answer opens a box to fill in
+    const needsMore = (q.other && v === q.other) || (q.follow && (q.follow.when === 'any' || q.follow.when.includes(v)))
     if (!needsMore) onPicked()
   }
   return (
@@ -87,21 +88,54 @@ function Single({ q, a, set, onPicked }) {
 
 function Multi({ q, a, set }) {
   const list = Array.isArray(a[q.key]) ? a[q.key] : []
+  const real = list.filter((x) => x !== q.none)
+  const mainRef = useRef(null)
+  const showMain = !!q.main && real.length >= 2
+  // Bring "Which matters most?" into view the moment it appears
+  useEffect(() => {
+    if (showMain) setTimeout(() => mainRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 120)
+  }, [showMain])
   function toggle(o) {
-    if (o === q.none) return set({ [q.key]: list.includes(o) ? [] : [o] })
-    const next = list.includes(o) ? list.filter((x) => x !== o) : [...list.filter((x) => x !== q.none), o]
-    set({ [q.key]: next })
+    let next
+    if (o === q.none) next = list.includes(o) ? [] : [o]
+    else next = list.includes(o) ? list.filter((x) => x !== o) : [...list.filter((x) => x !== q.none), o]
+    const patch = { [q.key]: next }
+    if (q.main && !next.includes(a[q.main.key])) patch[q.main.key] = ''
+    set(patch)
   }
   return (
-    <div className="space-y-2.5 stagger">
-      {q.options.map((o, i) => (
-        <Option key={o} i={i} square label={o} on={list.includes(o)} onClick={() => toggle(o)} />
-      ))}
-    </div>
+    <>
+      <div className="space-y-2.5 stagger">
+        {q.options.map((o, i) => (
+          <Option key={o} i={i} square label={o} on={list.includes(o)} onClick={() => toggle(o)} />
+        ))}
+      </div>
+      {showMain && (
+        <div ref={mainRef} className="mt-6 anim-rise scroll-mb-4">
+          <p className="text-sm font-semibold text-ink/70 mb-2.5">{q.main.label}</p>
+          <div className="flex flex-wrap gap-2">
+            {real.map((o) => {
+              const on = a[q.main.key] === o
+              return (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => set({ [q.main.key]: o })}
+                  aria-pressed={on}
+                  className={`pick min-h-[46px] rounded-full border px-4 text-[15px] font-semibold active:scale-[0.97] ${on ? 'gold-gradient text-ink border-gold shadow-md' : 'bg-white border-ink/15 hover:border-gold/70'}`}
+                >
+                  {o}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
-function Stepper({ label, unit, value, onChange, max }) {
+function Stepper({ label, unit, value, onChange, max, digits = 4 }) {
   const n = value === '' || value == null ? null : Number(value)
   const put = (v) => onChange(v == null ? '' : String(Math.max(0, max != null ? Math.min(max, v) : v)))
   return (
@@ -114,13 +148,13 @@ function Stepper({ label, unit, value, onChange, max }) {
         −
       </button>
       <input
-        className="w-16 h-11 shrink-0 rounded-xl border border-ink/15 text-center text-lg font-semibold outline-none focus:border-gold"
+        className={`${digits > 4 ? 'w-24' : 'w-16'} h-11 shrink-0 rounded-xl border border-ink/15 text-center text-lg font-semibold outline-none focus:border-gold`}
         inputMode="numeric"
         pattern="[0-9]*"
         value={value ?? ''}
         placeholder="–"
         onChange={(e) => {
-          const t = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 4)
+          const t = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, digits)
           put(t === '' ? null : Number(t))
         }}
         aria-label={label}
@@ -139,7 +173,7 @@ function Numbers({ q, a, set }) {
       <div className="space-y-2.5 stagger">
         {q.fields.map((f, i) => (
           <div key={f.key} style={{ '--i': i }}>
-            <Stepper label={f.label} unit={f.unit || q.unit} max={q.max} value={a[f.key]} onChange={(v) => set({ [f.key]: v })} />
+            <Stepper label={f.label} unit={f.unit || q.unit} max={q.max} digits={q.digits} value={a[f.key]} onChange={(v) => set({ [f.key]: v })} />
           </div>
         ))}
       </div>
@@ -175,22 +209,21 @@ function Scale({ value, onChange, label }) {
 
 function Rating({ q, a, set }) {
   const rowsRef = useRef([])
+  const brands = ratingBrands(q, a)
+  const key = (r, b) => `${q.prefix}${r}${BRAND_CODE[b]}`
   const filled = (x, k) => x[k] != null && x[k] !== ''
-  // When a row gets its second rating, bring the next row into view
-  function rate(i, key, v) {
+  const rowDone = (x, r) => brands.every((b) => filled(x, key(r, b)))
+  // When a row is complete, bring the next row into view
+  function rate(i, k, v) {
     const [r] = q.rows[i]
-    const next = { ...a, [key]: v }
-    set({ [key]: v })
-    const wasDone = filled(a, `${q.prefix}${r}SG`) && filled(a, `${q.prefix}${r}HB`)
-    const nowDone = filled(next, `${q.prefix}${r}SG`) && filled(next, `${q.prefix}${r}HB`)
-    if (!wasDone && nowDone && rowsRef.current[i + 1]) setTimeout(() => rowsRef.current[i + 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 180)
+    const next = { ...a, [k]: v }
+    set({ [k]: v })
+    if (!rowDone(a, r) && rowDone(next, r) && rowsRef.current[i + 1]) setTimeout(() => rowsRef.current[i + 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 180)
   }
   return (
     <div className="space-y-3 stagger">
       {q.rows.map(([r, label], i) => {
-        const kSG = `${q.prefix}${r}SG`
-        const kHB = `${q.prefix}${r}HB`
-        const done = filled(a, kSG) && filled(a, kHB)
+        const done = rowDone(a, r)
         return (
           <div key={r} ref={(el) => (rowsRef.current[i] = el)} style={{ '--i': i }} className={`rounded-2xl border p-3.5 transition-colors ${done ? 'border-gold/50 bg-gold/[0.04]' : 'border-ink/12 bg-white'}`}>
             <p className="font-serif text-lg mb-2.5 flex items-center gap-2">
@@ -198,8 +231,9 @@ function Rating({ q, a, set }) {
               {done && <span className="w-2 h-2 rounded-full bg-gold" />}
             </p>
             <div className="space-y-2">
-              <Scale label={SG} value={a[kSG]} onChange={(v) => rate(i, kSG, v)} />
-              <Scale label={HB} value={a[kHB]} onChange={(v) => rate(i, kHB, v)} />
+              {brands.map((b) => (
+                <Scale key={b} label={b} value={a[key(r, b)]} onChange={(v) => rate(i, key(r, b), v)} />
+              ))}
             </div>
           </div>
         )
@@ -255,7 +289,7 @@ export default function Question({ q, a, set, onPicked, eyebrow }) {
     <>
       <div className="mb-6 anim-rise">
         <p className="text-xs uppercase tracking-[0.14em] text-gold-dark font-semibold">{eyebrow}</p>
-        <h2 className="font-serif text-[26px] mt-1.5 leading-[1.18]">{q.q}</h2>
+        <h2 className="font-serif text-[26px] mt-1.5 leading-[1.18]">{qText(q, a)}</h2>
         {q.hint && <p className="text-sm text-ink/55 mt-1.5">{q.hint}</p>}
       </div>
       <Body q={q} a={a} set={set} onPicked={onPicked} />

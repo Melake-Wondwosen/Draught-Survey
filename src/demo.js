@@ -1,5 +1,5 @@
 // Made-up data for demo builds only (vite --mode demo). Never shipped to BAs.
-import { GROUPS, QUESTIONS, SECTIONS, answersForSheet, isShown, partShown } from './questionnaire'
+import { BRAND_CODE, GROUPS, QUESTIONS, SECTIONS, answersForSheet, followOn, isShown, partShown, ratingBrands } from './questionnaire'
 
 // Made-up divisions and agents for the demo analysis
 const DEMO_GEO = [
@@ -48,28 +48,33 @@ function build() {
         QUESTIONS.filter((q) => q.section === sec.id).forEach((q) => {
           if (!isShown(q, a)) return
           if (q.type === 'single') {
-            a[q.key] = q.key === 'm_soldHabesha' ? (group === GROUPS[1] ? 'No' : 'Yes') : weight(q.options, q.options.includes('St. George') ? 'St. George' : null)
+            a[q.key] = weight(q.options, q.options.includes('St. George') ? 'St. George' : null)
             if (q.other && a[q.key] === q.other) a[q.key + 'Other'] = 'Partner'
             if (q.key === 'c_qaInvite') a[q.key] = rnd() < 0.3 ? q.options[0] : rnd() < 0.5 ? q.options[1] : q.options[2]
-            if (q.follow && q.follow.when.includes(a[q.key])) {
-              const sample = { m_agreementEnds: ['March 2027', 'June 2027', 'End of 2027'], c_qaName: ['Dawit', 'Samuel', 'Biruk', 'Yonas', 'Meron', 'Abel'], c_qaPhone: ['0911 23 45 67', '0912 76 54 32', '0913 11 22 33', '0921 45 67 89'], c_qaWhen: ['Saturday afternoon', 'Weekday evening', 'Sunday morning'] }
+            if (q.key === 'a_likelihood') a[q.key] = pick(['High', 'Medium', 'Medium', 'Low'])
+            if (followOn(q, a)) {
+              const sample = { m_hbStopWords: ['St. George gave free kegs and a cooler', 'Habesha kegs came late twice', 'New owner signed with St. George'], m_agreementEnds: ['March 2027', 'June 2027', 'End of 2027'], c_qaName: ['Dawit', 'Samuel', 'Biruk', 'Yonas', 'Meron', 'Abel'], c_qaPhone: ['0911 23 45 67', '0912 76 54 32', '0913 11 22 33', '0921 45 67 89'], c_qaWhen: ['Saturday afternoon', 'Weekday evening', 'Sunday morning'] }
               q.follow.fields.forEach((f) => { a[f.key] = pick(sample[f.key] || ['Sample']) })
             }
           } else if (q.type === 'multi') {
-            a[q.key] = rnd() < 0.3 ? ['None'] : q.options.filter((x) => x !== 'None' && rnd() < 0.4)
-            if (!a[q.key].length) a[q.key] = ['St. George']
+            a[q.key] = q.none && rnd() < 0.2 ? [q.none] : q.options.filter((x) => x !== q.none && rnd() < 0.4)
+            if (!a[q.key].length) a[q.key] = [q.options[0]]
+            if (q.main) { const real = a[q.key].filter((x) => x !== q.none); if (real.length) a[q.main.key] = pick(real) }
           } else if (q.type === 'numbers') {
             q.fields.forEach((f, j) => {
               if (rnd() < 0.15) return
               const hb = f.label === 'Habesha'
-              const OBS = { o_tables: 8 + rnd() * 22, o_drinkersNow: 3 + rnd() * 25, o_waitersMen: 1 + rnd() * 4, o_waitersWomen: 1 + rnd() * 6 }
+              const OBS = {
+                o_tables: 8 + rnd() * 22, o_drinkersNow: 3 + rnd() * 25, o_waitersMen: 1 + rnd() * 4, o_waitersWomen: 1 + rnd() * 6,
+                m_priceKegStGeorge: 5200 + rnd() * 900, m_priceGlassStGeorge: 60 + rnd() * 30, m_priceKegHabesha: 4900 + rnd() * 900, m_priceGlassHabesha: 55 + rnd() * 30,
+                m_hbPotential: (group === GROUPS[2] ? 8 : 3) + rnd() * 10, s_foamStGeorge: 3 + rnd() * 8, s_foamHabesha: 3 + rnd() * 10,
+              }
               a[f.key] = f.key in OBS ? Math.round(OBS[f.key]) : q.max ? Math.floor(rnd() * (hb ? 3 : 6)) : Math.round((hb ? (group === GROUPS[2] ? 8 : 2) : j === 0 ? 10 : 2) * (0.4 + rnd()))
             })
           } else if (q.type === 'rating') {
-            q.rows.forEach(([r]) => {
-              a[`${q.prefix}${r}SG`] = 3 + Math.floor(rnd() * 3)
-              a[`${q.prefix}${r}HB`] = 2 + Math.floor(rnd() * 3)
-            })
+            q.rows.forEach(([r]) => ratingBrands(q, a).forEach((b) => {
+              a[`${q.prefix}${r}${BRAND_CODE[b]}`] = BRAND_CODE[b] === 'SG' ? 3 + Math.floor(rnd() * 3) : 2 + Math.floor(rnd() * 3)
+            }))
           } else if (q.type === 'pair') {
             q.parts.forEach((p) => { if (partShown(p, a)) a[p.key] = pick(p.options) })
           }

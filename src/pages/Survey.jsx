@@ -65,6 +65,7 @@ function buildRecord(d, user, location, start) {
 }
 
 const SECTION_ICON = {
+  assess: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
   observe: <><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" /><circle cx="12" cy="12" r="3.2" /></>,
   manager: <><circle cx="12" cy="7.5" r="3.5" /><path d="M5 21c.8-4.2 3.6-6.5 7-6.5s6.2 2.3 7 6.5" /><path d="M12 14.5l-1.2 2.3L12 21l1.2-4.2z" /></>,
   staff: <><path d="M7 21h10" /><path d="M12 21V10" /><path d="M8 10h8V6.5a4 4 0 0 0-8 0z" /><path d="M16 8h3v3" /></>,
@@ -257,7 +258,7 @@ export default function Survey() {
           <div className="h-1.5 rounded-full bg-paper/15 overflow-hidden">
             <div className="h-full rounded-full gold-gradient transition-[width] duration-500 ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: `${Math.max(4, progress * 100)}%` }} />
           </div>
-          <div className="mt-2.5 grid grid-cols-4 gap-2 text-[11px] font-semibold uppercase tracking-wider">
+          <div className="mt-2.5 grid grid-cols-5 gap-1.5 text-[10.5px] font-semibold uppercase tracking-wide">
             {SECTIONS.map((s) => {
               const skipped = data.skipped.includes(s.id)
               const sIndex = steps.findIndex((x) => x.id === 'intro-' + s.id)

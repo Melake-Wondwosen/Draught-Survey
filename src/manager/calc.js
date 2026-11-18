@@ -39,6 +39,31 @@ export function kegShare(surveys) {
   return { outlets: outlets.length, counted: counted.length, total, rows }
 }
 
+/*
+ * Habesha opportunity per outlet, latest visit each.
+ * Now       = Habesha kegs a week today (blank counts as 0)
+ * Potential = Habesha kegs a week the manager says they could sell
+ * Gain      = potential - now, never below 0
+ * Expected  = gain x the BA's chance of conversion (High 0.7, Medium 0.4, Low 0.1;
+ *             no assessment counts as Medium)
+ */
+export const LIKELIHOOD = { High: 0.7, Medium: 0.4, Low: 0.1 }
+export function opportunity(surveys) {
+  const rows = latestPerOutlet(surveys)
+    .filter((s) => num(s.m_hbPotential) != null)
+    .map((s) => {
+      const now = num(s.m_kegsHabesha) || 0
+      const potential = num(s.m_hbPotential)
+      const gain = Math.max(0, potential - now)
+      const chance = LIKELIHOOD[text(s.a_likelihood)] ?? LIKELIHOOD.Medium
+      const total = ['m_kegsStGeorge', 'm_kegsHabesha', 'm_kegsOther'].reduce((a, k) => a + (num(s[k]) || 0), 0)
+      return { s, now, potential, gain, chance, expected: gain * chance, total, likelihood: text(s.a_likelihood) }
+    })
+    .sort((a, b) => b.expected - a.expected || b.gain - a.gain)
+  const sum = (k) => rows.reduce((a, r) => a + r[k], 0)
+  return { rows, outlets: rows.length, now: sum('now'), potential: sum('potential'), gain: sum('gain'), expected: sum('expected') }
+}
+
 // Share of answers that match `values`, among outlets that answered `key`
 export function answerRate(surveys, key, values) {
   const asked = latestPerOutlet(surveys).filter((s) => text(s[key]).trim())
