@@ -55,20 +55,23 @@ var NATIONAL_SHEET = 'National Outlet';
 // Draught Market Visit Questionnaire. One column per answer, in this order.
 // Keep the same as ANSWER_KEYS in src/questionnaire.js.
 var ANSWER_KEYS = [
-  'o_tables', 'o_drinkersNow', 'o_onTap', 'o_qualityTempSG', 'o_qualityTempHB', 'o_qualityFreshSG', 'o_qualityFreshHB',
-  'o_qualityPourSG', 'o_qualityPourHB', 'o_qualityFoamSG', 'o_qualityFoamHB', 'o_age', 'o_gender', 'o_company',
-  'o_waitersMen', 'o_waitersWomen', 'o_prefer', 'o_preferWhy', 'o_peak', 'm_decider', 'm_deciderOther', 'm_kegsStGeorge',
-  'm_kegsHabesha', 'm_kegsOther', 'm_priceKegStGeorge', 'm_priceGlassStGeorge', 'm_priceKegHabesha', 'm_priceGlassHabesha',
-  'm_sgDrivers', 'm_sgDriverMain', 'm_sgSupport', 'm_agreement', 'm_agreementEnds', 'm_lostWhen', 'm_hbStopReason',
-  'm_hbStopWords', 'm_winBack', 'm_winBackMain', 'm_hbPotential', 'm_trial', 's_defaultServe', 's_askStGeorge',
-  's_askHabesha', 's_incentive', 's_personalBrand', 's_personalWhy', 's_foamStGeorge', 's_foamHabesha', 's_lineClean',
-  's_stockoutStGeorge', 's_stockoutHabesha', 's_complaintIssue', 's_complaintBrand', 's_removedReason', 's_recommend',
-  'c_drinking', 'c_reason', 'c_everHabesha', 'c_whyNot', 'c_rateTasteSG', 'c_rateTasteHB', 'c_rateFreshnessSG',
-  'c_rateFreshnessHB', 'c_rateValueSG', 'c_rateValueHB', 'c_rateImageSG', 'c_rateImageHB', 'c_ifUnavailable',
-  'c_wouldOrder', 'c_qaInvite', 'c_qaName', 'c_qaPhone', 'c_qaWhen', 'a_likelihood', 'a_barrier'
+  'o_drinkersNow', 'o_ordersWatched', 'o_ordersNamed', 'o_waiterAction', 'o_whoDecides', 'o_onTap',
+  'o_visible', 'o_qualityTempSG', 'o_qualityTempHB', 'o_qualityFreshSG', 'o_qualityFreshHB',
+  'o_qualityPourSG', 'o_qualityPourHB', 'o_qualityFoamSG', 'o_qualityFoamHB', 'o_qualityGlassSG',
+  'o_qualityGlassHB', 'o_push', 'o_age', 'o_gender', 'o_company', 'o_rush', 'o_waitersMen', 'o_waitersWomen',
+  'o_prefer', 'o_preferWhy', 'o_peak', 'o_surprise', 'm_decider', 'm_deciderOther', 'm_kegsStGeorge',
+  'm_kegsHabesha', 'm_kegsOther', 'm_priceKegStGeorge', 'm_priceGlassStGeorge', 'm_priceKegHabesha',
+  'm_priceGlassHabesha', 'm_mostMoney', 'm_sellsFastest', 'm_sgDrivers', 'm_sgDriverMain', 'm_sgSupport',
+  'm_problemBrand', 'm_problem', 'm_agreement', 'm_agreementEnds', 'm_lostWhen', 'm_hbStopReason',
+  'm_hbStopWords', 'm_winBack', 'm_winBackMain', 'm_stopper', 'm_hbPotential', 'm_trial', 's_defaultServe',
+  's_defaultWhy', 's_wrongBrand', 's_easierBrand', 's_easierWhy', 's_incentive', 's_personalBrand',
+  's_personalWhy', 's_foamStGeorge', 's_foamHabesha', 's_lineClean', 's_removedReason', 's_reason',
+  's_quote', 'c_drinking', 'c_ordered', 'c_orderWords', 'c_sizePick', 'c_sizeWhy', 'c_swapped', 'c_blame',
+  'c_goodDraught', 'c_groupDecides', 'c_everHabesha', 'c_whyNot', 'c_quote', 'c_qaInvite', 'c_qaName',
+  'c_qaPhone', 'c_qaWhen', 'a_likelihood'
 ];
 // Answers that are numbers (kegs, counts, 1-5 ratings); every other answer is text
-var NUMBER_ANSWER = /^(m_kegs|m_price|m_hbPotential|s_ask|s_stockout|s_foam|m_rate|c_rate|o_quality|o_tables|o_drinkersNow|o_waiters)/;
+var NUMBER_ANSWER = /^(m_kegs|m_price|m_hbPotential|s_foam|o_quality|o_drinkersNow|o_orders|o_waiters)/;
 var ROLES = ['ba', 'manager', 'admin'];
 // A survey further than this from its outlet's coordinates raises an alert
 var OUTLET_RANGE_M = 100;
@@ -651,7 +654,7 @@ function surveyAddSurvey_(body) {
   ANSWER_KEYS.forEach(function (k) {
     var v = answers[k];
     if (v == null || v === '') { row[k] = ''; return; }
-    row[k] = NUMBER_ANSWER.test(k) ? num_(v) : String(v).slice(0, 300);
+    row[k] = NUMBER_ANSWER.test(k) ? num_(v) : String(v).slice(0, 500);
   });
 
   var duplicate = false;

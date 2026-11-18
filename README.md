@@ -6,28 +6,33 @@ Draught survey app for BAs, with a manager view and admin console in the same ap
 
 ## The survey
 
-The Draught Market Visit Questionnaire (Addis Ababa, high-end outlets), one question per screen. Tapping an answer moves on by itself; numbers, ratings and tick-all questions have a Next button.
+Built on the Draught Immersion Field Kit (Addis Ababa, high-end outlets), one question per screen. Tapping an answer moves on by itself; numbers, ratings, tick-all and note questions have a Next button. The rule from the kit runs through it: ask about tonight, not what people would do, and never say "Habesha" before the consumer does.
 
 1. Outlet: type part of the name and tap the outlet. Area, territory and parent territory come from the National Outlet tab.
-2. Outlet group: Lost Habesha outlet, St. George-dominant (never Habesha), or Active Habesha outlet. The manager questions change with the group.
-3. Outlet observation, 9 questions the BA answers by looking (o_ columns): tables and draught drinkers now, brands on tap, a quality check of each brand on tap (temperature, freshness, pour and head, foam waste, 1 to 5), age group, men or women, groups or alone, men and women waiting tables, draught or bottled (RGB) and why, busiest time.
-4. Outlet owner / manager (m_ columns): who decides, weekly kegs by brand, keg and glass prices, then by group:
-   - Lost: what keeps St. George, what St. George has given the outlet, agreement, when Habesha stopped, the real reason (with their words), what it would take to win them back, Habesha kegs a week they could sell, trial. 11 questions.
-   - St. George-dominant: the same without the two "lost" questions. 9 questions.
-   - Active Habesha: agreement, what would make them sell more Habesha, kegs they could sell. 7 questions.
-   "What keeps St. George" and "what would win the business" are tick-all, then the main one.
-5. Bar staff, 10 questions (s_ columns), including their favourite brand and why, glasses lost to foam per keg, and when the lines were last cleaned.
-6. Draught consumer, 8 questions (c_ columns), ending with the invite to the paid consumer Q&A (name and phone required if they agree).
-7. Your assessment, 2 questions the BA answers alone (a_ columns): chance of conversion (High, Medium, Low) and the biggest barrier.
+2. Outlet group: Lost Habesha outlet, St. George-dominant (never Habesha), or Active Habesha outlet. The owner questions change with the group.
+3. Outlet observation, 12 questions answered by watching (o_ columns), done in pairs over 2 rounds: draught drinkers now, orders watched and how many named a brand, what the waiter does when nobody names a brand and who decides, brands on tap, what branding is visible, a quality check per brand on tap (temperature, freshness, pour, foam, glass, 1 to 5), anyone pushing a brand, who drinks (age, men or women), groups or alone and how fast service is, men and women serving, draught or bottled and why, busiest time, and anything that surprised them.
+4. Outlet owner / manager (m_ columns), off-peak: who decided the taps, weekly kegs by brand, keg and glass prices, which brand makes the most money and which sells fastest, problems with any brand, agreements, then by group:
+   - Lost: what keeps St. George, what the St. George distributor gives them, when Habesha stopped and the real reason (in their words), what it would take to win them back, what would stop them, Habesha kegs a week they could sell, trial. 14 questions.
+   - St. George-dominant: the same without the two "lost" questions; the win-back question becomes "what would make you switch or add a tap?". 12 questions.
+   - Active Habesha: what would make them sell more Habesha and the kegs they could sell. 8 questions.
+5. Bar staff, 10 questions (9 outside lost outlets, s_ columns): what they bring when someone says only "jambo", what happens with the wrong beer, which beer makes their day easier, what they get for pushing a brand, their own favourite, glasses lost to foam, line cleaning, why Habesha was removed (lost only), what reason would make them bring a different beer, and the best thing they said.
+6. Draught consumer, 11 questions (c_ columns): what beer they are drinking right now, what they said when they ordered (with their exact words), single or jambo, what they did when a waiter brought a different beer, who they would blame for a bad beer, what good draught looks like, who decides in the group, then only at the end whether they have drunk Habesha and why not, the best thing they said, and the invite to the paid consumer Q&A (name and phone required if they agree).
+7. Your assessment, 1 question (a_likelihood): chance of conversion, High, Medium or Low.
 8. Review, then Submit.
 
-Each section starts with a short intro and can be skipped when nobody is available ("skipped" column).
+Each section starts with a short intro from the kit and can be skipped when nobody is available ("skipped" column).
 
-## Opportunity
+## Before you leave the field
 
-For each outlet (latest visit): gain = Habesha kegs a week they could sell, less what they sell now. Expected gain = gain x the BA's chance of conversion (High 70%, Medium 40%, Low 10%; no assessment counts as Medium). The admin Analysis tab ranks outlets by expected gain and shows totals; the manager view shows the total.
+The BA home screen shows today's field check against the kit's daily targets: 8 venues, 15 orders watched, 4 talks with bar staff, 2 with owners, 6 quotes. It counts from surveys sent on that phone today.
 
-The admin Analysis tab also lists everyone who agreed to the paid Q&A (name, phone, best time, outlet, BA) with a Copy for Excel button.
+## Analysis
+
+- Habesha keg opportunity: for each outlet (latest visit), gain = Habesha kegs a week they could sell, less what they sell now. Expected gain = gain x the BA's chance of conversion (High 70%, Medium 40%, Low 10%; no assessment counts as Medium). Each row shows what would stop the outlet. The manager view shows the totals.
+- Hypotheses: the evidence for H1 to H5 from the kit (default not loyalty, the waiter is the real customer, choosing carries risk, no brand moment, quality judged by serve). It shows the numbers; the team confirms or kills each one in the debrief.
+- Quotes: every exact quote (consumer, ordering words, bar staff, owner, observation) with outlet and BA, filterable, with a Copy for Excel button.
+- Orders naming a brand: orders that named a brand out of all orders watched. It replaces "would order Habesha", which the kit drops as a hypothetical question.
+- Q&A invites: everyone who agreed to the paid Q&A (name, phone, best time, outlet, BA) with a Copy for Excel button.
 
 Questions, options and skip rules live in `src/questionnaire.js`. The column list is `ANSWER_KEYS` there and in `apps-script/Survey.gs`; change both together. An empty Surveys tab gets the new columns laid out by itself on the first save.
 

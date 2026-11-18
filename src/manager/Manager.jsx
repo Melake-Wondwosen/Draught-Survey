@@ -8,7 +8,7 @@ import Bell from '../components/Bell'
 import { clearNotesMemory, setServerNotes } from '../notes'
 import MapView from './MapView'
 import { GROUPS } from '../questionnaire'
-import { ago, answerRate, groupCounts, groupShort, kegShare, opportunity, pct, surveyLine, teamStatus, text } from './calc'
+import { ago, answerRate, groupCounts, groupShort, kegShare, namedShare, opportunity, pct, surveyLine, teamStatus, text } from './calc'
 
 const PERIODS = [
   { key: 'today', label: 'Today' },
@@ -81,7 +81,7 @@ export default function Manager() {
   const share = useMemo(() => (data ? kegShare(data.surveys) : null), [data])
   const groups = useMemo(() => (data ? groupCounts(data.surveys, GROUPS) : []), [data])
   const trial = useMemo(() => (data ? answerRate(data.surveys, 'm_trial', ['Yes, now', 'Yes, after contract ends']) : null), [data])
-  const order = useMemo(() => (data ? answerRate(data.surveys, 'c_wouldOrder', ['Yes']) : null), [data])
+  const order = useMemo(() => (data ? namedShare(data.surveys) : null), [data])
   const opp = useMemo(() => (data ? opportunity(data.surveys) : null), [data])
   const recent = useMemo(() => (data ? [...data.surveys].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15) : []), [data])
 
@@ -295,7 +295,7 @@ function MarketShare({ share, groups, trial, order, opp }) {
         </div>
         <div className="rounded-xl bg-ink text-paper px-3 py-2.5">
           <p className="font-serif text-2xl tabular-nums leading-none text-gold">{pct(order.rate)}</p>
-          <p className="text-[11px] text-paper/65 mt-1 leading-tight">Consumers who would order Habesha</p>
+          <p className="text-[11px] text-paper/65 mt-1 leading-tight">Draught orders that named a brand</p>
         </div>
         <div className="rounded-xl gold-gradient text-ink px-3 py-2.5 col-span-2">
           <p className="font-serif text-2xl tabular-nums leading-none">+{Math.round(opp.expected).toLocaleString()}</p>

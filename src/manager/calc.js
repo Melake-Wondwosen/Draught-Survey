@@ -57,11 +57,19 @@ export function opportunity(surveys) {
       const gain = Math.max(0, potential - now)
       const chance = LIKELIHOOD[text(s.a_likelihood)] ?? LIKELIHOOD.Medium
       const total = ['m_kegsStGeorge', 'm_kegsHabesha', 'm_kegsOther'].reduce((a, k) => a + (num(s[k]) || 0), 0)
-      return { s, now, potential, gain, chance, expected: gain * chance, total, likelihood: text(s.a_likelihood) }
+      return { s, now, potential, gain, chance, expected: gain * chance, total, likelihood: text(s.a_likelihood), barrier: text(s.m_stopper) }
     })
     .sort((a, b) => b.expected - a.expected || b.gain - a.gain)
   const sum = (k) => rows.reduce((a, r) => a + r[k], 0)
   return { rows, outlets: rows.length, now: sum('now'), potential: sum('potential'), gain: sum('gain'), expected: sum('expected') }
+}
+
+// Orders that named a brand, out of all draught orders watched (latest visit per outlet)
+export function namedShare(surveys) {
+  const list = latestPerOutlet(surveys).filter((s) => num(s.o_ordersWatched) > 0)
+  const watched = list.reduce((a, s) => a + num(s.o_ordersWatched), 0)
+  const named = list.reduce((a, s) => a + Math.min(num(s.o_ordersNamed) || 0, num(s.o_ordersWatched)), 0)
+  return { outlets: list.length, watched, named, rate: watched ? named / watched : null }
 }
 
 // Share of answers that match `values`, among outlets that answered `key`

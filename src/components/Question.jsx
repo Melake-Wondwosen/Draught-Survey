@@ -178,6 +178,12 @@ function Numbers({ q, a, set }) {
         ))}
       </div>
       {q.total && sum > q.total && <p className="mt-3 text-sm text-gold-dark font-semibold anim-rise">Together that's {sum}. It can't be more than {q.total}.</p>}
+      {(q.lte || []).map(([x, y]) => {
+        const fx = q.fields.find((f) => f.key === x), fy = q.fields.find((f) => f.key === y)
+        return a[x] !== '' && a[x] != null && a[y] !== '' && a[y] != null && Number(a[x]) > Number(a[y]) ? (
+          <p key={x} className="mt-3 text-sm text-gold-dark font-semibold anim-rise">"{fx.label}" can't be more than "{fy.label}".</p>
+        ) : null
+      })}
     </>
   )
 }
@@ -281,7 +287,19 @@ function Pair({ q, a, set, onPicked }) {
   )
 }
 
-const BODY = { single: Single, multi: Multi, numbers: Numbers, rating: Rating, pair: Pair }
+function Text({ q, a, set }) {
+  return (
+    <textarea
+      className="w-full min-h-[150px] rounded-2xl border border-ink/15 bg-white px-4 py-3.5 text-[16.5px] leading-relaxed outline-none focus:border-gold resize-none anim-rise"
+      value={a[q.key] || ''}
+      onChange={(e) => set({ [q.key]: e.target.value.slice(0, 500) })}
+      placeholder={q.placeholder}
+      autoComplete="off"
+    />
+  )
+}
+
+const BODY = { single: Single, multi: Multi, numbers: Numbers, rating: Rating, pair: Pair, text: Text }
 
 export default function Question({ q, a, set, onPicked, eyebrow }) {
   const Body = BODY[q.type]

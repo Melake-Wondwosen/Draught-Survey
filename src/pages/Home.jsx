@@ -5,7 +5,7 @@ import { locationMessage, onLocation } from '../location'
 import { addLocalNote, clearNotesMemory, setServerNotes } from '../notes'
 import { clearPack, syncOutlets, syncPack } from '../outlets'
 import { setActivity, stopPresence } from '../presence'
-import { clearDraft, clearUser, getDoneCounts, getDraft, getLastSync, getQueue, getQueueWhy, getUser, setLastSync } from '../storage'
+import { FIELD_TARGETS, clearDraft, clearUser, getDoneCounts, getDraft, getFieldToday, getLastSync, getQueue, getQueueWhy, getUser, setLastSync } from '../storage'
 import Bell from '../components/Bell'
 import { Button, Emblem, Notice, Pattern, Sheet, SignOutButton } from '../components/ui'
 
@@ -15,6 +15,7 @@ export default function Home() {
   const navigate = useNavigate()
   const user = getUser()
   const [counts] = useState(getDoneCounts)
+  const [field] = useState(getFieldToday)
   const [draft, setDraftState] = useState(getDraft)
   const [confirmNew, setConfirmNew] = useState(false)
   const [pending, setPending] = useState(() => getQueue().length)
@@ -89,6 +90,10 @@ export default function Home() {
         <div className="grid grid-cols-2 gap-3" style={{ '--i': 0 }}>
           <Stat label="Today" value={counts.today} />
           <Stat label="All time" value={counts.total} />
+        </div>
+
+        <div style={{ '--i': 1 }}>
+          <FieldCheck field={field} />
         </div>
 
         {locError && (
@@ -183,6 +188,40 @@ export default function Home() {
 
       <Pattern className="opacity-60 px-8 pb-2 anim-fade" />
     </main>
+  )
+}
+
+// The field kit's checklist: don't leave the field until every line is ticked
+const FIELD_ROWS = [
+  ['venues', 'Venues visited'],
+  ['orders', 'Orders watched'],
+  ['servers', 'Talks with bar staff'],
+  ['owners', 'Talks with owners'],
+  ['quotes', 'Quotes noted'],
+]
+function FieldCheck({ field }) {
+  const done = FIELD_ROWS.filter(([k]) => field[k] >= FIELD_TARGETS[k]).length
+  return (
+    <section className="mt-4 rounded-2xl bg-white border border-ink/10 px-4 py-3.5">
+      <div className="flex items-baseline justify-between">
+        <p className="font-semibold">Before you leave the field</p>
+        <p className={`text-xs font-semibold ${done === FIELD_ROWS.length ? 'text-gold-dark' : 'text-ink/50'}`}>{done} of {FIELD_ROWS.length} done today</p>
+      </div>
+      <ul className="mt-2.5 space-y-1.5">
+        {FIELD_ROWS.map(([k, label]) => {
+          const ok = field[k] >= FIELD_TARGETS[k]
+          return (
+            <li key={k} className="flex items-center gap-2.5 text-sm">
+              <span className={`w-5 h-5 shrink-0 rounded-full flex items-center justify-center ${ok ? 'gold-gradient text-ink' : 'border-2 border-ink/15'}`}>
+                {ok && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7" /></svg>}
+              </span>
+              <span className="flex-1 text-ink/75">{label}</span>
+              <span className="tabular-nums font-semibold">{Math.min(field[k], 999)}<span className="text-ink/40 font-normal"> / {FIELD_TARGETS[k]}</span></span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

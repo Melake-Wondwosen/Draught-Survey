@@ -77,6 +77,29 @@ export function getDoneCounts() {
   return { today: done[todayKey()] || 0, total }
 }
 
+// The field kit's "before leaving the field" check, per device and day:
+// one entry per submitted survey with what it covered.
+const FIELD_KEY = 'draught_field_log_v1'
+export const FIELD_TARGETS = { venues: 8, orders: 15, servers: 4, owners: 2, quotes: 6 }
+export function logField(entry) {
+  const log = read(FIELD_KEY, {})
+  const day = todayKey()
+  log[day] = [...(log[day] || []), entry]
+  // Keep two weeks
+  Object.keys(log).sort().slice(0, -14).forEach((k) => delete log[k])
+  write(FIELD_KEY, log)
+}
+export function getFieldToday() {
+  const list = read(FIELD_KEY, {})[todayKey()] || []
+  return {
+    venues: list.length,
+    orders: list.reduce((a, e) => a + (Number(e.orders) || 0), 0),
+    servers: list.filter((e) => e.server).length,
+    owners: list.filter((e) => e.owner).length,
+    quotes: list.reduce((a, e) => a + (Number(e.quotes) || 0), 0),
+  }
+}
+
 // The survey in progress. Saved after every answer, so closing the app or
 // losing the page doesn't lose the work. Only the BA who started it sees it.
 export function getDraft() {

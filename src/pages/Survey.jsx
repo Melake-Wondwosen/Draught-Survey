@@ -4,7 +4,7 @@ import { flushQueue } from '../api'
 import { getFix, latestFix, locationError, locationMessage } from '../location'
 import { setActivity } from '../presence'
 import { RETURN_HOME_MS } from '../config'
-import { clearDraft, countDone, getDraft, getUser, pushQueue, setDraft } from '../storage'
+import { clearDraft, countDone, getDraft, getUser, logField, pushQueue, setDraft } from '../storage'
 import { Button, Sheet, Spinner } from '../components/ui'
 import { StepOutlet } from '../components/steps'
 import Question from '../components/Question'
@@ -19,9 +19,9 @@ function buildSteps(d) {
   SECTIONS.forEach((s, si) => {
     steps.push({ id: 'intro-' + s.id, kind: 'intro', section: s, n: si + 1 })
     if (d.skipped.includes(s.id)) return
-    // Numbered as on the paper form, so a skipped question just jumps ahead
-    const all = QUESTIONS.filter((q) => q.section === s.id)
-    all.forEach((q, qi) => isShown(q, d.answers) && steps.push({ id: q.key, kind: 'question', q, section: s, n: qi + 1, of: all.length }))
+    // Only the questions this outlet gets, so the count matches what the BA will see
+    const shown = QUESTIONS.filter((q) => q.section === s.id && isShown(q, d.answers))
+    shown.forEach((q, qi) => steps.push({ id: q.key, kind: 'question', q, section: s, n: qi + 1, of: shown.length }))
   })
   steps.push({ id: 'review', kind: 'review' })
   return steps
@@ -210,6 +210,14 @@ export default function Survey() {
     pushQueue(record)
     clearDraft()
     countDone()
+    const ans = record.answers
+    logField({
+      at: Date.now(),
+      orders: Number(ans.o_ordersWatched) || 0,
+      server: !data.skipped.includes('staff'),
+      owner: !data.skipped.includes('manager'),
+      quotes: ['o_surprise', 's_quote', 'c_quote', 'c_orderWords', 'm_hbStopWords'].filter((k) => ans[k]).length,
+    })
     setActivity(`Submitted survey at ${record.outletName || 'outlet'} (${record.outletId})`, true)
     setStatus(navigator.onLine ? 'saved' : 'queued')
     flushQueue()

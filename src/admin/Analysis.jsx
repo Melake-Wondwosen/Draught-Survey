@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { managerData } from '../api'
 import { GROUPS, HB, QUESTIONS, SECTIONS, SG, qTitle } from '../questionnaire'
-import { answerRate, groupCounts, groupShort, kegShare, latestPerOutlet, num, opportunity, pct, text } from '../manager/calc'
+import { answerRate, groupCounts, groupShort, kegShare, latestPerOutlet, namedShare, num, opportunity, pct, text } from '../manager/calc'
 import { Notice, Spinner } from '../components/ui'
 
 const PERIODS = [
@@ -78,7 +78,7 @@ export default function Analysis() {
   const share = useMemo(() => kegShare(rows), [rows])
   const groups = useMemo(() => groupCounts(rows, GROUPS), [rows])
   const trial = useMemo(() => answerRate(rows, 'm_trial', TRIAL_YES), [rows])
-  const order = useMemo(() => answerRate(rows, 'c_wouldOrder', ['Yes']), [rows])
+  const order = useMemo(() => namedShare(rows), [rows])
   const bas = useMemo(() => new Set(rows.map((s) => text(s.baId))).size, [rows])
   const opp = useMemo(() => opportunity(rows), [rows])
   const hbShare = share.rows.find((r) => r.ours)?.share
@@ -100,7 +100,7 @@ export default function Analysis() {
           kegs: sh.total,
           hb: sh.rows.find((r) => r.ours)?.share,
           trial: answerRate(list, 'm_trial', TRIAL_YES).rate,
-          order: answerRate(list, 'c_wouldOrder', ['Yes']).rate,
+          order: namedShare(list).rate,
         }
       })
       .sort((a, b) => b.outlets - a.outlets || b.surveys - a.surveys)
@@ -158,7 +158,7 @@ export default function Analysis() {
             <Tile label="Active BAs" value={fmt(bas)} />
             <Tile label="Habesha keg share" value={pct(hbShare)} gold />
             <Tile label="Accept a trial" value={pct(trial.rate)} gold />
-            <Tile label="Would order Habesha" value={pct(order.rate)} gold />
+            <Tile label="Orders naming a brand" value={pct(order.rate)} gold />
           </div>
 
           {!rows.length ? (
@@ -166,6 +166,8 @@ export default function Analysis() {
           ) : (
             <>
               <Opportunity opp={opp} />
+
+              <Hypotheses rows={rows} outlets={outlets} />
 
               <div className="grid lg:grid-cols-2 gap-4">
                 <Card title="Draught keg share" sub={`${share.counted} of ${share.outlets} outlets gave keg counts · ${fmt(share.total)} kegs a week`}>
@@ -202,7 +204,7 @@ export default function Analysis() {
                         <th className="py-2 px-1 font-semibold text-right hidden sm:table-cell">Kegs/week</th>
                         <th className="py-2 px-1 font-semibold text-right">Habesha share</th>
                         <th className="py-2 px-1 font-semibold text-right hidden sm:table-cell">Trial</th>
-                        <th className="py-2 px-1 font-semibold text-right hidden sm:table-cell">Would order</th>
+                        <th className="py-2 px-1 font-semibold text-right hidden sm:table-cell">Named brand</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -224,6 +226,8 @@ export default function Analysis() {
               {SECTIONS.map((sec, si) => (
                 <QuestionResults key={sec.id} section={sec} n={si + 1} outlets={outlets} />
               ))}
+
+              <Quotes rows={rows} />
 
               <Invites rows={rows} />
             </>
@@ -303,6 +307,20 @@ function QuestionCard({ q, n, outlets }) {
       const max = Math.max(0.0001, ...per.map((p) => p.avg || 0))
       body = <Bars rows={per.map((p) => ({ label: p.label, rate: (p.avg || 0) / max, show: `${one(p.avg)}`, extra: p.unit || q.unit, gold: p.label === HB }))} wide={per.some((p) => p.label.length > 12)} />
     }
+  } else if (q.type === 'text') {
+    const said = outlets.filter((s) => text(s[q.key]).trim()).sort((a, b) => new Date(b.date) - new Date(a.date))
+    base = said.length
+    body = (
+      <ul className="space-y-2.5">
+        {said.slice(0, 4).map((s) => (
+          <li key={text(s.id)} className="text-sm">
+            <p className="font-serif text-[15px] leading-snug">"{text(s[q.key])}"</p>
+            <p className="text-[11px] text-ink/45 mt-0.5">{text(s.outletName)} · {text(s.baName)}</p>
+          </li>
+        ))}
+        {said.length > 4 && <li className="text-xs text-ink/50">All {said.length} are in the quotes list below.</li>}
+      </ul>
+    )
   } else if (q.type === 'rating') {
     const per = q.rows.map(([r, l]) => {
       const sg = outlets.map((s) => num(s[`${q.prefix}${r}SG`])).filter((v) => v != null)
@@ -488,7 +506,7 @@ function Opportunity({ opp }) {
                   <tr key={text(r.s.id)} className="border-t border-ink/8">
                     <td className="py-2.5 px-1 truncate" title={text(r.s.outletName)}>
                       <span className="font-semibold">{text(r.s.outletName)}</span>
-                      <span className="block text-[11px] text-ink/50 truncate">{text(r.s.area) || text(r.s.territory)}{text(r.s.a_barrier) ? ` · ${text(r.s.a_barrier)}` : ''}</span>
+                      <span className="block text-[11px] text-ink/50 truncate">{text(r.s.area) || text(r.s.territory)}{r.barrier ? ` · ${r.barrier}` : ''}</span>
                     </td>
                     <td className="py-2.5 px-1 hidden md:table-cell">{groupShort(r.s.group)}</td>
                     <td className="py-2.5 px-1 text-right tabular-nums hidden sm:table-cell">{fmt(r.total)}</td>
@@ -518,5 +536,110 @@ function Mini({ label, value, gold }) {
       <p className={`font-serif text-2xl tabular-nums leading-none ${gold ? 'text-gold' : ''}`}>{value}</p>
       <p className={`text-[11px] mt-1 ${gold ? 'text-paper/65' : 'text-ink/60'}`}>{label}</p>
     </div>
+  )
+}
+
+// The field kit's hypotheses, with the evidence the survey collects for each.
+// It shows the numbers only; the team decides in the debrief whether each one survives.
+const share = (list, test) => (list.length ? list.filter(test).length / list.length : null)
+const asked = (outlets, key) => outlets.filter((s) => text(s[key]).trim())
+function Hypotheses({ rows, outlets }) {
+  const named = namedShare(rows)
+  const drink = asked(outlets, 'c_drinking'), swapped = asked(outlets, 'c_swapped'), waiter = asked(outlets, 'o_waiterAction')
+  const decides = asked(outlets, 'o_whoDecides'), ordered = asked(outlets, 'c_ordered'), visible = asked(outlets, 'o_visible')
+  const blame = asked(outlets, 'c_blame'), good = asked(outlets, 'c_goodDraught'), wrong = asked(outlets, 's_wrongBrand')
+  const H = [
+    ['H1', 'Default, not loyalty', 'Drinkers never really choose the legacy brand.', [
+      [`${pct(named.rate)}`, `of ${named.watched} watched orders named a brand`],
+      [pct(share(drink, (s) => text(s.c_drinking) === "Doesn't know")), "of drinkers didn't know what they were drinking"],
+      [pct(share(swapped, (s) => text(s.c_swapped) === 'Drank it anyway')), 'drank a swapped beer anyway'],
+    ]],
+    ['H2', 'The waiter is the real customer', 'The habit lives at the server.', [
+      [pct(share(waiter, (s) => text(s.o_waiterAction).startsWith('Brought'))), 'of waiters brought a brand without asking'],
+      [pct(share(decides, (s) => text(s.o_whoDecides) === 'The waiter')), 'of outlets where the waiter decides'],
+      [pct(share(wrong, (s) => text(s.s_wrongBrand) !== 'Customer complains')), 'of waiters say a wrong beer has no consequence'],
+    ]],
+    ['H3', 'Choosing carries risk', '"Jambo" is the safe, effortless word.', [
+      [pct(share(ordered, (s) => text(s.c_ordered) !== 'Named a brand')), 'of drinkers did not name a brand'],
+      [pct(share(asked(outlets, 'c_groupDecides'), (s) => text(s.c_groupDecides) === 'Someone else')), 'say someone else in the group decides'],
+    ]],
+    ['H4', 'No brand moment on draught', 'Nothing at the table makes the brand matter.', [
+      [pct(share(visible, (s) => text(s.o_visible).includes('No branding'))), 'of outlets show no branding at all'],
+      [pct(share(visible, (s) => !text(s.o_visible).includes('Habesha'))), 'of outlets show no Habesha branding'],
+    ]],
+    ['H5', 'Quality is judged by serve, not brand', 'If it is cold and fresh, good enough wins.', [
+      [pct(share(blame, (s) => text(s.c_blame) === 'The bar')), 'would blame the bar, not the brand, for a bad beer'],
+      [pct(share(good, (s) => text(s.c_goodDraught).includes('The brand'))), 'name the brand as a sign of good draught'],
+    ]],
+  ]
+  return (
+    <Card title="Hypotheses" sub="The evidence for each. Confirm or kill them in the debrief.">
+      <div className="grid lg:grid-cols-2 gap-3">
+        {H.map(([id, name, line, ev]) => (
+          <div key={id} className="rounded-xl border border-ink/10 p-3.5">
+            <p className="flex items-baseline gap-2">
+              <span className="text-xs font-bold text-gold-dark">{id}</span>
+              <span className="font-semibold">{name}</span>
+            </p>
+            <p className="text-xs text-ink/55 mt-0.5">{line}</p>
+            <ul className="mt-2.5 space-y-1.5">
+              {ev.map(([v, l]) => (
+                <li key={l} className="flex items-baseline gap-3 text-sm">
+                  <span className="w-14 shrink-0 text-right font-serif text-lg tabular-nums">{v}</span>
+                  <span className="text-ink/70 leading-snug">{l}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+// Every exact quote, for the debrief ("3 consumer, 3 server")
+const QUOTE_KEYS = [
+  ['c_quote', 'Consumer'], ['c_orderWords', 'Consumer, ordering'], ['s_quote', 'Bar staff'],
+  ['m_hbStopWords', 'Owner, why Habesha stopped'], ['o_surprise', 'Observation'],
+]
+function Quotes({ rows }) {
+  const [who, setWho] = useState('')
+  const list = rows
+    .flatMap((s) => QUOTE_KEYS.filter(([k]) => text(s[k]).trim()).map(([k, from]) => ({ s, k, from, q: text(s[k]).trim() })))
+    .filter((x) => !who || x.from.startsWith(who))
+    .sort((a, b) => new Date(b.s.date) - new Date(a.s.date))
+  const [copied, setCopied] = useState(false)
+  async function copy() {
+    const lines = [['Quote', 'From', 'Outlet', 'BA', 'Date'].join('\t')].concat(list.map((x) => [x.q, x.from, text(x.s.outletName), text(x.s.baName), new Date(x.s.date).toLocaleDateString()].join('\t')))
+    try { await navigator.clipboard.writeText(lines.join('\n')); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* blocked */ }
+  }
+  return (
+    <Card
+      title="Quotes"
+      sub={`${list.length} in their exact words`}
+      right={
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-full bg-mist p-1">
+            {[['', 'All'], ['Consumer', 'Consumers'], ['Bar staff', 'Staff'], ['Owner', 'Owners'], ['Observation', 'Seen']].map(([k, l]) => (
+              <button key={l} type="button" onClick={() => setWho(k)} className={`px-3 h-8 rounded-full text-xs font-semibold ${who === k ? 'bg-ink text-paper' : 'text-ink/60 hover:text-ink'}`}>{l}</button>
+            ))}
+          </div>
+          {list.length > 0 && <button type="button" onClick={copy} className="btn-hover h-9 px-4 rounded-full border border-ink/15 text-sm font-semibold hover:border-gold">{copied ? 'Copied' : 'Copy'}</button>}
+        </div>
+      }
+    >
+      {!list.length ? (
+        <p className="text-sm text-ink/55">No quotes yet.</p>
+      ) : (
+        <ul className="max-h-[440px] overflow-y-auto divide-y divide-ink/8">
+          {list.map((x) => (
+            <li key={text(x.s.id) + x.k} className="py-2.5">
+              <p className="font-serif text-[16px] leading-snug">"{x.q}"</p>
+              <p className="text-[11px] text-ink/50 mt-0.5">{x.from} · {text(x.s.outletName)} · {text(x.s.baName)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   )
 }

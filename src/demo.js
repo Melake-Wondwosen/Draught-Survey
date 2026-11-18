@@ -53,8 +53,8 @@ function build() {
             if (q.key === 'c_qaInvite') a[q.key] = rnd() < 0.3 ? q.options[0] : rnd() < 0.5 ? q.options[1] : q.options[2]
             if (q.key === 'a_likelihood') a[q.key] = pick(['High', 'Medium', 'Medium', 'Low'])
             if (followOn(q, a)) {
-              const sample = { m_hbStopWords: ['St. George gave free kegs and a cooler', 'Habesha kegs came late twice', 'New owner signed with St. George'], m_agreementEnds: ['March 2027', 'June 2027', 'End of 2027'], c_qaName: ['Dawit', 'Samuel', 'Biruk', 'Yonas', 'Meron', 'Abel'], c_qaPhone: ['0911 23 45 67', '0912 76 54 32', '0913 11 22 33', '0921 45 67 89'], c_qaWhen: ['Saturday afternoon', 'Weekday evening', 'Sunday morning'] }
-              q.follow.fields.forEach((f) => { a[f.key] = pick(sample[f.key] || ['Sample']) })
+              const sample = { m_hbStopWords: ['St. George gave free kegs and a cooler', 'Habesha kegs came late twice', 'New owner signed with St. George'], m_agreementEnds: ['March 2027', 'June 2027', 'End of 2027'], c_qaName: ['Dawit', 'Samuel', 'Biruk', 'Yonas', 'Meron', 'Abel'], c_qaPhone: ['0911 23 45 67', '0912 76 54 32', '0913 11 22 33', '0921 45 67 89'], c_qaWhen: ['Saturday afternoon', 'Weekday evening', 'Sunday morning'], c_orderWords: ['Hulet jambo', 'Jambo, cold one', 'Give me a draught', 'St. George jambo'] }
+              q.follow.fields.forEach((f) => { if (f.required || rnd() < 0.6) a[f.key] = pick(sample[f.key] || ['Sample']) })
             }
           } else if (q.type === 'multi') {
             a[q.key] = q.none && rnd() < 0.2 ? [q.none] : q.options.filter((x) => x !== q.none && rnd() < 0.4)
@@ -65,16 +65,28 @@ function build() {
               if (rnd() < 0.15) return
               const hb = f.label === 'Habesha'
               const OBS = {
-                o_tables: 8 + rnd() * 22, o_drinkersNow: 3 + rnd() * 25, o_waitersMen: 1 + rnd() * 4, o_waitersWomen: 1 + rnd() * 6,
+                o_drinkersNow: 3 + rnd() * 25, o_ordersWatched: 6 + rnd() * 14, o_waitersMen: 1 + rnd() * 4, o_waitersWomen: 1 + rnd() * 6,
                 m_priceKegStGeorge: 5200 + rnd() * 900, m_priceGlassStGeorge: 60 + rnd() * 30, m_priceKegHabesha: 4900 + rnd() * 900, m_priceGlassHabesha: 55 + rnd() * 30,
                 m_hbPotential: (group === GROUPS[2] ? 8 : 3) + rnd() * 10, s_foamStGeorge: 3 + rnd() * 8, s_foamHabesha: 3 + rnd() * 10,
               }
               a[f.key] = f.key in OBS ? Math.round(OBS[f.key]) : q.max ? Math.floor(rnd() * (hb ? 3 : 6)) : Math.round((hb ? (group === GROUPS[2] ? 8 : 2) : j === 0 ? 10 : 2) * (0.4 + rnd()))
             })
+            // Fields that must not exceed another (orders naming a brand ≤ orders watched)
+            ;(q.lte || []).forEach(([small, big]) => {
+              if (a[big] == null) delete a[small]
+              else a[small] = Math.round(a[big] * (0.1 + rnd() * 0.3))
+            })
           } else if (q.type === 'rating') {
             q.rows.forEach(([r]) => ratingBrands(q, a).forEach((b) => {
               a[`${q.prefix}${r}${BRAND_CODE[b]}`] = BRAND_CODE[b] === 'SG' ? 3 + Math.floor(rnd() * 3) : 2 + Math.floor(rnd() * 3)
             }))
+          } else if (q.type === 'text') {
+            const said = {
+              o_surprise: ['Nobody at the bar asked which beer, the waiter just poured', 'Two tables sent back warm glasses', 'Owner chose the tap brand himself, staff had no say', 'A group of six ordered "jambo" five times in ten minutes'],
+              s_quote: ['People say jambo, I give what is on tap', 'St. George rep gives us something every month', 'If the foam is bad they blame me, not the beer'],
+              c_quote: ['I just say jambo, it is all the same', 'If it is cold I am happy', 'My friend orders for the table'],
+            }[q.key]
+            if (said && rnd() < 0.7) a[q.key] = pick(said)
           } else if (q.type === 'pair') {
             q.parts.forEach((p) => { if (partShown(p, a)) a[p.key] = pick(p.options) })
           }
