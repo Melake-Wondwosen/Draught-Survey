@@ -55,17 +55,19 @@ var NATIONAL_SHEET = 'National Outlet';
 // Draught Market Visit Questionnaire. One column per answer, in this order.
 // Keep the same as ANSWER_KEYS in src/questionnaire.js.
 var ANSWER_KEYS = [
-  'm_decider', 'm_deciderOther', 'm_kegsStGeorge', 'm_kegsHabesha', 'm_kegsOther', 'm_sgReason', 'm_agreement',
-  'm_agreementEnds', 'm_soldHabesha', 'm_hbVsSg', 'm_hbStopReason', 'm_rateDemandSG', 'm_rateDemandHB', 'm_rateProfitSG',
-  'm_rateProfitHB', 'm_rateSupplySG', 'm_rateSupplyHB', 'm_rateQualitySG', 'm_rateQualityHB', 'm_rateServiceSG',
-  'm_rateServiceHB', 'm_relist', 'm_trial', 's_defaultServe', 's_askStGeorge', 's_askHabesha', 's_incentive',
-  's_easierPour', 's_stockoutStGeorge', 's_stockoutHabesha', 's_complaintBrand', 's_complaintIssue', 's_removedReason',
-  's_recommend', 'c_drinking', 'c_byName', 'c_reason', 'c_everHabesha', 'c_whyNot', 'c_rateTasteSG', 'c_rateTasteHB',
-  'c_rateFreshnessSG', 'c_rateFreshnessHB', 'c_rateValueSG', 'c_rateValueHB', 'c_rateImageSG', 'c_rateImageHB',
-  'c_ifUnavailable', 'c_wouldOrder'
+  'o_tables', 'o_drinkersNow', 'o_age', 'o_gender', 'o_company', 'o_waitersMen', 'o_waitersWomen', 'o_prefer',
+  'o_preferWhy', 'o_peak', 'm_decider', 'm_deciderOther', 'm_kegsStGeorge', 'm_kegsHabesha', 'm_kegsOther',
+  'm_sgReason', 'm_agreement', 'm_agreementEnds', 'm_soldHabesha', 'm_hbStopReason', 'm_rateDemandSG', 'm_rateDemandHB',
+  'm_rateProfitSG', 'm_rateProfitHB', 'm_rateSupplySG', 'm_rateSupplyHB', 'm_rateQualitySG', 'm_rateQualityHB',
+  'm_rateServiceSG', 'm_rateServiceHB', 'm_relist', 'm_trial', 's_defaultServe', 's_askStGeorge', 's_askHabesha',
+  's_incentive', 's_personalBrand', 's_personalWhy', 's_stockoutStGeorge', 's_stockoutHabesha', 's_complaintIssue',
+  's_complaintBrand', 's_removedReason', 's_recommend', 'c_drinking', 'c_reason', 'c_everHabesha', 'c_whyNot',
+  'c_rateTasteSG', 'c_rateTasteHB', 'c_rateFreshnessSG', 'c_rateFreshnessHB', 'c_rateValueSG', 'c_rateValueHB',
+  'c_rateImageSG', 'c_rateImageHB', 'c_ifUnavailable', 'c_wouldOrder', 'c_qaInvite', 'c_qaName', 'c_qaPhone',
+  'c_qaWhen'
 ];
 // Answers that are numbers (kegs, counts, 1-5 ratings); every other answer is text
-var NUMBER_ANSWER = /^(m_kegs|s_ask|s_stockout|m_rate|c_rate)/;
+var NUMBER_ANSWER = /^(m_kegs|s_ask|s_stockout|m_rate|c_rate|o_tables|o_drinkersNow|o_waiters)/;
 var ROLES = ['ba', 'manager', 'admin'];
 // A survey further than this from its outlet's coordinates raises an alert
 var OUTLET_RANGE_M = 100;

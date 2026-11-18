@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { HB, SG } from '../questionnaire'
+import { HB, SG, partShown } from '../questionnaire'
 import { inputClass } from './ui'
 
 // One question on one screen. `onPicked` runs after a single-choice tap, so the
@@ -60,10 +60,26 @@ function Single({ q, a, set, onPicked }) {
         </div>
       )}
       {showFollow && (
-        <label className="block mt-4 anim-rise">
-          <span className="block text-sm font-semibold text-ink/70 mb-1.5">{q.follow.label}</span>
-          <input className={inputClass} value={a[q.follow.key] || ''} onChange={(e) => set({ [q.follow.key]: e.target.value })} placeholder={q.follow.placeholder} autoComplete="off" />
-        </label>
+        <div className="mt-5 space-y-3.5 anim-rise">
+          {q.follow.fields.map((f, i) => (
+            <label key={f.key} className="block">
+              <span className="block text-sm font-semibold text-ink/70 mb-1.5">
+                {f.label}
+                {f.required && <span className="text-gold-dark"> *</span>}
+              </span>
+              <input
+                className={inputClass}
+                value={a[f.key] || ''}
+                onChange={(e) => set({ [f.key]: f.inputMode === 'tel' ? e.target.value.replace(/[^\d+ ]/g, '').slice(0, 16) : e.target.value })}
+                placeholder={f.placeholder}
+                inputMode={f.inputMode}
+                type={f.inputMode === 'tel' ? 'tel' : 'text'}
+                autoComplete="off"
+                autoFocus={i === 0}
+              />
+            </label>
+          ))}
+        </div>
       )}
     </>
   )
@@ -123,7 +139,7 @@ function Numbers({ q, a, set }) {
       <div className="space-y-2.5 stagger">
         {q.fields.map((f, i) => (
           <div key={f.key} style={{ '--i': i }}>
-            <Stepper label={f.label} unit={q.unit} max={q.max} value={a[f.key]} onChange={(v) => set({ [f.key]: v })} />
+            <Stepper label={f.label} unit={f.unit || q.unit} max={q.max} value={a[f.key]} onChange={(v) => set({ [f.key]: v })} />
           </div>
         ))}
       </div>
@@ -197,18 +213,15 @@ function Rating({ q, a, set }) {
 }
 
 function Pair({ q, a, set, onPicked }) {
-  const [brand, issue] = q.parts
-  const noIssue = a[issue.key] === 'None'
   function pick(part, v) {
     const next = { ...a, [part.key]: v }
     set({ [part.key]: v })
-    const ok = next[issue.key] === 'None' || (next[issue.key] && next[brand.key])
-    if (ok) onPicked()
+    if (q.parts.every((p) => !partShown(p, next) || (next[p.key] != null && next[p.key] !== ''))) onPicked()
   }
   return (
     <div className="space-y-6">
-      {[issue, brand].map((part) =>
-        part === brand && noIssue ? null : (
+      {q.parts.map((part) =>
+        !partShown(part, a) ? null : (
           <div key={part.key} className="anim-rise">
             <p className="text-sm font-semibold text-ink/70 mb-2.5">{part.label}</p>
             <div className="grid grid-cols-2 gap-2.5">
@@ -220,7 +233,7 @@ function Pair({ q, a, set, onPicked }) {
                     type="button"
                     onClick={() => pick(part, o)}
                     aria-pressed={on}
-                    className={`pick min-h-[54px] rounded-2xl border px-3 text-[16px] font-semibold active:scale-[0.97] ${on ? 'bg-ink text-paper border-ink' : 'bg-white border-ink/12 hover:border-gold/70'}`}
+                    className={`pick min-h-[54px] rounded-2xl border px-3 py-2 text-[16px] font-semibold leading-tight active:scale-[0.97] ${on ? 'bg-ink text-paper border-ink' : 'bg-white border-ink/12 hover:border-gold/70'}`}
                   >
                     {o}
                   </button>

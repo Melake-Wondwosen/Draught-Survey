@@ -221,6 +221,8 @@ export default function Analysis() {
               {SECTIONS.map((sec, si) => (
                 <QuestionResults key={sec.id} section={sec} n={si + 1} outlets={outlets} />
               ))}
+
+              <Invites rows={rows} />
             </>
           )}
         </>
@@ -257,26 +259,32 @@ function QuestionCard({ q, n, outlets }) {
     base = r.asked
     body = <Bars rows={[...r.rows].sort((a, b) => b.count - a.count).map((x) => ({ label: x.label, rate: x.rate, extra: `${x.count}` }))} wide />
   } else if (q.type === 'pair') {
-    const issue = optionCounts(outlets, q.parts[1].key, q.parts[1].options)
-    const brand = optionCounts(outlets, q.parts[0].key, q.parts[0].options)
-    base = issue.asked
+    const parts = q.parts.map((p) => ({ p, r: optionCounts(outlets, p.key, p.options) }))
+    base = parts[0].r.asked
     body = (
       <div className="space-y-4">
-        <Bars rows={issue.rows.map((x) => ({ label: x.label, rate: x.rate, extra: `${x.count}` }))} />
-        <div>
-          <p className="text-[11px] uppercase tracking-wider text-gold-dark mb-1.5">Brand complained about</p>
-          <Bars rows={brand.rows.map((x) => ({ label: x.label, rate: x.rate, extra: `${x.count}`, gold: x.label === HB }))} />
-        </div>
+        {parts.map(({ p, r }, i) => (
+          <div key={p.key}>
+            {i > 0 && <p className="text-[11px] uppercase tracking-wider text-gold-dark mb-1.5">{p.label}</p>}
+            <Bars rows={r.rows.map((x) => ({ label: x.label, rate: x.rate, extra: `${x.count}`, gold: x.label === HB }))} wide={p.options.some((o) => o.length > 12)} />
+          </div>
+        ))}
       </div>
     )
   } else if (q.type === 'numbers') {
     const per = q.fields.map((f) => {
       const vals = outlets.map((s) => num(s[f.key])).filter((v) => v != null)
-      return { ...f, avg: avg(vals), n: vals.length }
+      return { ...f, avg: avg(vals), sum: vals.reduce((x, y) => x + y, 0), n: vals.length }
     })
     base = Math.max(0, ...per.map((p) => p.n))
-    const max = Math.max(0.0001, ...per.map((p) => p.avg || 0))
-    body = <Bars rows={per.map((p) => ({ label: p.label, rate: (p.avg || 0) / max, show: `${one(p.avg)}`, extra: q.unit, gold: p.label === HB }))} />
+    if (q.share) {
+      // Shares of the total, e.g. men and women among waiters
+      const total = per.reduce((x, p) => x + p.sum, 0)
+      body = <Bars rows={per.map((p) => ({ label: p.label, rate: total ? p.sum / total : null, extra: `${one(p.avg)} on average` }))} />
+    } else {
+      const max = Math.max(0.0001, ...per.map((p) => p.avg || 0))
+      body = <Bars rows={per.map((p) => ({ label: p.label, rate: (p.avg || 0) / max, show: `${one(p.avg)}`, extra: p.unit || q.unit, gold: p.label === HB }))} wide={per.some((p) => p.label.length > 12)} />
+    }
   } else if (q.type === 'rating') {
     const per = q.rows.map(([r, l]) => {
       const sg = outlets.map((s) => num(s[`${q.prefix}${r}SG`])).filter((v) => v != null)
@@ -360,5 +368,68 @@ function Card({ title, sub, right, children }) {
       </div>
       {children}
     </section>
+  )
+}
+
+// Consumers who agreed to the paid Q&A, newest first, every visit (not only the latest per outlet)
+function Invites({ rows }) {
+  const list = rows
+    .filter((s) => text(s.c_qaInvite) === 'Yes, they agreed')
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+  const asked = rows.filter((s) => text(s.c_qaInvite)).length
+  const [copied, setCopied] = useState(false)
+  async function copy() {
+    const lines = [['Name', 'Phone', 'Best time', 'Outlet', 'Area', 'BA', 'Date'].join('\t')].concat(
+      list.map((s) => [text(s.c_qaName), text(s.c_qaPhone), text(s.c_qaWhen), text(s.outletName), text(s.area), text(s.baName), new Date(s.date).toLocaleDateString()].join('\t')),
+    )
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* clipboard blocked */
+    }
+  }
+  return (
+    <Card
+      title="Paid consumer Q&A invites"
+      sub={`${list.length} agreed out of ${asked} asked`}
+      right={
+        list.length > 0 && (
+          <button type="button" onClick={copy} className="btn-hover h-9 px-4 rounded-full border border-ink/15 text-sm font-semibold hover:border-gold">
+            {copied ? 'Copied' : 'Copy for Excel'}
+          </button>
+        )
+      }
+    >
+      {!list.length ? (
+        <p className="text-sm text-ink/55">Nobody has agreed yet.</p>
+      ) : (
+        <div className="max-h-[420px] overflow-y-auto">
+          <table className="w-full text-sm table-fixed">
+            <thead className="sticky top-0 bg-white">
+              <tr className="text-[11px] uppercase tracking-wider text-gold-dark text-left">
+                <th className="py-2 px-1 font-semibold">Name</th>
+                <th className="py-2 px-1 font-semibold">Phone</th>
+                <th className="py-2 px-1 font-semibold hidden sm:table-cell">Best time</th>
+                <th className="py-2 px-1 font-semibold">Outlet</th>
+                <th className="py-2 px-1 font-semibold hidden md:table-cell">BA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((s) => (
+                <tr key={text(s.id)} className="border-t border-ink/8">
+                  <td className="py-2.5 px-1 font-semibold truncate">{text(s.c_qaName)}</td>
+                  <td className="py-2.5 px-1 tabular-nums truncate">{text(s.c_qaPhone)}</td>
+                  <td className="py-2.5 px-1 truncate hidden sm:table-cell">{text(s.c_qaWhen) || '–'}</td>
+                  <td className="py-2.5 px-1 truncate" title={text(s.outletName)}>{text(s.outletName)}</td>
+                  <td className="py-2.5 px-1 truncate hidden md:table-cell">{text(s.baName)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
   )
 }

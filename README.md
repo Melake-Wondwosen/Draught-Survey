@@ -10,12 +10,15 @@ The Draught Market Visit Questionnaire (Addis Ababa, high-end outlets), one ques
 
 1. Outlet: type part of the name and tap the outlet. Area, territory and parent territory come from the National Outlet tab.
 2. Outlet group: Lost Habesha outlet, St. George-dominant (never Habesha), or Active Habesha outlet.
-3. Outlet owner / manager, 10 questions (m_ columns).
-4. Bar staff, 8 questions (s_ columns).
-5. Draught consumer, 8 questions (c_ columns).
-6. Review, then Submit.
+3. Outlet observation, 7 questions the BA answers by looking (o_ columns): tables and draught drinkers now, age group, men or women, groups or alone, men and women waiting tables, draught or bottled (RGB) and why, busiest time.
+4. Outlet owner / manager, 9 questions (m_ columns).
+5. Bar staff, 8 questions (s_ columns), including which brand they personally like and why.
+6. Draught consumer, 8 questions (c_ columns), ending with the invite to the paid consumer Q&A. If they agree, name and phone are required and a best day and time is optional.
+7. Review, then Submit.
 
-Each section starts with a short intro and can be skipped when nobody is available ("skipped" column). Skip rules from the paper form are built in: "Did you sell Habesha draught before?" = No skips Q6 and Q7; an Active Habesha outlet skips "why was Habesha stopped"; the bar-staff question on why Habesha was removed shows only for lost outlets; "why did you stop or never drink it" is skipped for regular Habesha drinkers.
+Each section starts with a short intro and can be skipped when nobody is available ("skipped" column). Skip rules: "Did you sell Habesha draught before?" = No skips why it was stopped, as does an Active Habesha outlet; the bar-staff question on why Habesha was removed shows only for lost outlets; "why did you stop or never drink it" is skipped for regular Habesha drinkers; "why" after draught or bottled is skipped for "About the same"; the complaint brand is skipped when there is no complaint.
+
+The admin Analysis tab lists everyone who agreed to the paid Q&A (name, phone, best time, outlet, BA) with a Copy for Excel button.
 
 Questions, options and skip rules live in `src/questionnaire.js`. The column list is `ANSWER_KEYS` there and in `apps-script/Survey.gs`; change both together. An empty Surveys tab gets the new columns laid out by itself on the first save.
 
