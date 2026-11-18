@@ -4,7 +4,7 @@ import { getFix, locationMessage } from '../location'
 import { setUser } from '../storage'
 import { Spinner } from './ui'
 
-// The sign-in form, styled as frosted glass for the dark sign-in screen.
+// The sign-in form for the white sign-in screen: labels above, underlined fields.
 // `need` = 'admin' makes the server turn away anyone who isn't an admin.
 // `onWatch` reports typing to the sign-in logo: (field, value, { username, password })
 // `onStatus` reports 'signing' when Sign in is pressed and 'failed' if it doesn't work
@@ -66,17 +66,12 @@ export default function SignInForm({ need, onDone, onWatch, onStatus, submitLabe
   }
 
   return (
-    <form key={shake} onSubmit={submit} className={`space-y-3.5 ${shake ? 'anim-shake' : ''}`}>
-      <label className="glass-field">
-        <span className="sr-only">Username</span>
-        <svg className="glass-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="8" r="4" />
-          <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />
-        </svg>
+    <form key={shake} onSubmit={submit} className={`space-y-6 ${shake ? 'anim-shake' : ''}`}>
+      <label className="line-field">
+        <span className="line-label">Username</span>
         <input
-          className="glass-input"
-          placeholder="Username"
-          value={username}
+          className="line-input"
+                    value={username}
           onChange={(e) => {
             setUsername(e.target.value)
             onWatch?.('username', e.target.value, { username: e.target.value, password })
@@ -90,16 +85,11 @@ export default function SignInForm({ need, onDone, onWatch, onStatus, submitLabe
         />
       </label>
 
-      <label className="glass-field">
-        <span className="sr-only">Password</span>
-        <svg className="glass-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
-          <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
-        </svg>
+      <label className="line-field">
+        <span className="line-label">Password</span>
         <input
-          className="glass-input pr-14"
-          placeholder="Password"
-          type={showPw ? 'text' : 'password'}
+          className="line-input pr-12"
+                    type={showPw ? 'text' : 'password'}
           value={password}
           onChange={(e) => {
             setPassword(e.target.value)
@@ -117,7 +107,7 @@ export default function SignInForm({ need, onDone, onWatch, onStatus, submitLabe
           onClick={() => setShowPw((v) => !v)}
           aria-label={showPw ? 'Hide password' : 'Show password'}
           aria-pressed={showPw}
-          className="absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center text-paper/55 hover:text-paper"
+          className="absolute right-0 bottom-1 w-11 h-11 rounded-full flex items-center justify-center text-ink/45 hover:text-ink"
         >
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
@@ -127,21 +117,15 @@ export default function SignInForm({ need, onDone, onWatch, onStatus, submitLabe
         </button>
       </label>
 
-      {error && <p className="anim-rise rounded-2xl border border-gold/40 bg-gold/10 backdrop-blur-md text-paper text-sm px-4 py-3">{error}</p>}
+      {error && <p className="anim-rise rounded-xl bg-paper border border-ink/15 border-l-4 border-l-gold text-ink text-sm px-4 py-3">{error}</p>}
 
-      <button type="submit" disabled={!!busy || !username.trim() || !password} className="glass-button">
+      <button type="submit" disabled={!!busy || !username.trim() || !password} className="line-button">
         {busy ? (
           <span className="inline-flex items-center gap-2">
             <Spinner /> {busy}
           </span>
         ) : (
-          <span className="inline-flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" className="text-gold-dark" fill="currentColor">
-              <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z" />
-              <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
-            </svg>
-            {submitLabel}
-          </span>
+          submitLabel
         )}
       </button>
     </form>
