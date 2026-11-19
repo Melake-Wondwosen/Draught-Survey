@@ -243,16 +243,17 @@ export async function demoCall(action, p) {
       if (p.version && p.version === q.version) return { ok: true, same: true, version: q.version }
       return { ok: true, version: q.version, rows: q.rows }
     }
-    case 'saveQuestion': {
+    case 'saveQuestion':
+    case 'saveQuestions': {
       const q = demoQuestions()
-      const row = { ...p.question }
-      if (!row.key) row.key = 'x_' + Math.random().toString(36).slice(2, 8)
-      const i = q.rows.findIndex((r) => r.key === row.key)
-      if (i > -1) q.rows[i] = { ...q.rows[i], ...row }
-      else q.rows.push(row)
+      ;(p.questions || [p.question]).forEach((row) => {
+        const i = q.rows.findIndex((r) => r.key === row.key)
+        if (i > -1) q.rows[i] = { ...q.rows[i], ...row }
+        else q.rows.push({ ...row })
+      })
       q.version = String(Date.now())
       try { localStorage.setItem('draught_demo_questions', JSON.stringify(q)) } catch { /* full */ }
-      return { ok: true, key: row.key }
+      return { ok: true }
     }
   }
   throw new Error('Not available in the demo.')

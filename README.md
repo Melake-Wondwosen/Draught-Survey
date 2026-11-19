@@ -28,13 +28,16 @@ The field kit guides are in the app in Amharic: the observation sheet on the Obs
 
 ## Questions tab (admin)
 
-The admin can change the questionnaire from the app, without a code change:
+The admin changes the questionnaire from the app, with no code change. Every question opens in an editor with a live phone preview for each outlet group.
 
-- Add a question to any section: one answer, tick all, a number or a note in their words. Choose the outlet groups that get it, where it goes, and whether an answer is required.
-- Reword a built-in question or its note. Its answers stay fixed, because the analysis counts them.
-- Turn any question off, and back on. Answers already saved stay in the sheet.
+- Any question, built-in or added: the wording (one text, or one per outlet group), the short name in the results, the note for the BA, every answer (rename, add, remove, reorder), the answer that opens a text box, follow-up boxes after chosen answers (text or phone, required or not), the answer that clears the others and "which matters most", number boxes with their units, the highest number and digits, rating rows, both parts of a two-answer question, the outlet groups that get it, "only ask when" an earlier answer matches, and whether an answer is required.
+- New questions of every type the survey uses: one answer, tick all, numbers, rating 1 to 5 (overall or per brand on tap), two answers, note. Answers naming St. George, Habesha or Other can follow the brands on tap.
+- Order: arrows move a question up or down in its section; a new question can go at the start, the end or after any question.
+- Turn any question off and back on. A built-in question can go back to the original.
 
-Changes are kept in the Questions tab of the sheet and reach the phones on their next sync, usually within a minute; phones keep the last version for offline work. Each added question gets its own column (x_ and six characters) at the end of the Surveys tab, and shows in the admin Analysis tab with the others.
+Built-in questions keep their type and their built-in rules (outlet group, brands on tap). Where the Analysis or a rule looks for exact words (for example "The waiter" or "Yes, they agreed"), the editor says which words to keep.
+
+Changes are kept in the Questions tab of the sheet (key, section, spec as JSON, the extra columns, active) and reach the phones on their next sync, usually within a minute; phones keep the last version for offline work. Every new answer box gets its own column at the end of the Surveys tab, and answers to new questions show in the admin Analysis tab.
 
 ## Before you leave the field
 

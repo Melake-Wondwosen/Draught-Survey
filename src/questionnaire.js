@@ -20,7 +20,7 @@
 
 export const SG = 'St. George'
 export const HB = 'Habesha'
-export const BRAND_CODE = { [SG]: 'SG', [HB]: 'HB' }
+export const BRAND_CODE = { [SG]: 'SG', [HB]: 'HB', '': '' }
 
 export const GROUPS = ['Lost Habesha outlet', 'St. George-dominant (never Habesha)', 'Habesha draught outlet']
 const LOST = GROUPS[0], SGDOM = GROUPS[1], ACTIVE = GROUPS[2] // ACTIVE = Habesha draught outlet
@@ -62,10 +62,15 @@ const sells = (a, brand) => (tapKnown(a) ? a.o_onTap.includes(brand) : brand ===
 const brandsHere = (a) => [SG, HB, 'Other'].filter((b) => sells(a, b))
 // Brands the bar staff can compare: what is sold now, plus Habesha in a lost outlet (they poured it before)
 const staffBrands = (a) => { const b = brandsHere(a).filter((x) => x !== 'Other'); return a.group === LOST && !b.includes(HB) ? [...b, HB] : b }
+// Keeps an answer only if the brand it names is sold here ("Other" and "another brand" need another brand on tap).
+// Choice filters work on whatever answers the admin has written, so renamed answers still follow the taps.
+export const brandOk = (a) => (x) =>
+  x.includes(SG) ? sells(a, SG) : x.includes(HB) ? sells(a, HB) : x === 'Other' || /another brand/i.test(x) ? sells(a, 'Other') : true
+const byBrand = (a, o) => o.filter(brandOk(a))
 
 const BASE = [
   // 1. Outlet observation: watch the order habit before talking to anyone
-  { section: 'observe', key: 'o_onTap', type: 'multi', q: 'Which draught brands are on tap here?', hint: 'Tick all that apply.', options: [SG, HB, 'Other'], choices: (a) => (a.group === ACTIVE ? [SG, HB, 'Other'] : [SG, 'Other']) },
+  { section: 'observe', key: 'o_onTap', type: 'multi', q: 'Which draught brands are on tap here?', hint: 'Tick all that apply.', options: [SG, HB, 'Other'], choices: (a, o) => (a.group === ACTIVE ? o : o.filter((x) => !x.includes(HB))) },
   {
     section: 'observe', key: 'o_orders', type: 'numbers', q: 'Watch the orders', hint: 'Over at least 2 rounds. Count every draught order you see.',
     fields: [
@@ -81,12 +86,7 @@ const BASE = [
       {
         key: 'o_waiterAction', label: 'The waiter…',
         options: ['Brought St. George without asking', 'Brought Habesha without asking', 'Brought another brand without asking', 'Asked "which one?"', 'Saw no such order'],
-        choices: (a) => [
-          ...(sells(a, SG) ? ['Brought St. George without asking'] : []),
-          ...(sells(a, HB) ? ['Brought Habesha without asking'] : []),
-          ...(sells(a, 'Other') ? ['Brought another brand without asking'] : []),
-          'Asked "which one?"', 'Saw no such order',
-        ],
+        choices: byBrand,
       },
       { key: 'o_whoDecides', label: 'Who really decides the brand?', options: ['The consumer', 'The waiter', 'The owner or manager', 'The barman'] },
     ],
@@ -94,7 +94,7 @@ const BASE = [
   {
     section: 'observe', key: 'o_visible', type: 'multi', q: 'What brand do you see at the table and bar?', hint: 'Look at the glasses on the tables and the bar. Tick all.',
     options: ['St. George glass', 'Habesha glass', 'No branding at all'], none: 'No branding at all',
-    choices: (a) => (a.group === SGDOM ? ['St. George glass', 'No branding at all'] : ['St. George glass', 'Habesha glass', 'No branding at all']),
+    choices: (a, o) => (a.group === SGDOM ? o.filter((x) => !x.includes(HB)) : o),
   },
   {
     section: 'observe', key: 'o_quality', type: 'rating', q: 'Draught quality check', hint: 'Order or watch a pour of each brand on tap. 1 = very poor, 5 = excellent.',
@@ -124,7 +124,7 @@ const BASE = [
   { section: 'observe', key: 'o_surprise', type: 'text', q: 'Anything that surprised you?', hint: 'Exact words and behaviour, not opinions. Optional.', placeholder: 'He said "two jambo" and didn\'t look up' },
 
   // 2. Outlet owner / manager
-  { section: 'manager', key: 'm_decider', type: 'single', q: 'Who decided which draught brands are sold at the bar?', options: ['Owner', 'Manager', 'Other'], other: 'Other' },
+  { section: 'manager', key: 'm_decider', type: 'single', q: 'Who decided which draught brands are sold at the bar?', options: ['Owner', 'Manager', 'Other'], other: 'Other', otherHint: 'Who?' },
   {
     section: 'manager', key: 'm_kegs', type: 'numbers', q: 'Weekly draught kegs sold, by brand', hint: "Leave blank if they don't know.",
     // A brand not sold here is 0 kegs, so keg share still counts the outlet
@@ -145,7 +145,7 @@ const BASE = [
   },
   {
     section: 'manager', key: 'm_fastProfit', type: 'single', q: 'Which sells fastest and is most profitable?', options: [SG, HB, 'Other', 'About the same'],
-    choices: (a) => [...brandsHere(a), 'About the same'], show: (a) => brandsHere(a).length > 1,
+    choices: byBrand, show: (a) => brandsHere(a).length > 1,
   },
   {
     section: 'manager', key: 'm_sgDrivers', type: 'multi', show: (a) => notActive(a) && sells(a, SG),
@@ -162,7 +162,7 @@ const BASE = [
   {
     section: 'manager', key: 'm_problems', type: 'pair', q: 'Problems with any brand?',
     parts: [
-      { key: 'm_problemBrand', label: 'Which brand gives you the most problems?', options: [SG, HB, 'Other', 'None'], choices: (a) => [...brandsHere(a), 'None'] },
+      { key: 'm_problemBrand', label: 'Which brand gives you the most problems?', options: [SG, HB, 'Other', 'None'], choices: byBrand },
       { key: 'm_problem', label: 'What kind?', options: ['Delivery / stock-outs', 'Quality', 'Keg returns', 'Sales team service'], show: (a) => !!a.m_problemBrand && a.m_problemBrand !== 'None' },
     ],
   },
@@ -203,7 +203,7 @@ const BASE = [
   {
     section: 'staff', key: 's_jambo', type: 'pair', q: 'A customer says only "jambo". What do you bring?',
     parts: [
-      { key: 's_defaultServe', label: 'They bring', options: [SG, HB, 'Other'], choices: brandsHere },
+      { key: 's_defaultServe', label: 'They bring', options: [SG, HB, 'Other'], choices: byBrand },
       { key: 's_defaultWhy', label: 'Why that one?', options: ['Always on tap', "Owner's instruction", 'Most customers want it', 'Brewery incentive', 'Habit'], show: (a) => !!a.s_defaultServe },
     ],
   },
@@ -211,14 +211,14 @@ const BASE = [
   {
     section: 'staff', key: 's_easier', type: 'pair', q: 'Which beer makes your day easier?', show: (a) => staffBrands(a).length > 1,
     parts: [
-      { key: 's_easierBrand', label: 'Easier to work with', options: [SG, HB, 'Same'], choices: (a) => [...staffBrands(a), 'Same'] },
+      { key: 's_easierBrand', label: 'Easier to work with', options: [SG, HB, 'Same'], choices: (a, o) => o.filter((x) => (x.includes(SG) ? staffBrands(a).includes(SG) : x.includes(HB) ? staffBrands(a).includes(HB) : true)) },
       { key: 's_easierWhy', label: 'Why?', options: ['Less foam', 'Fewer keg changes', 'Fewer complaints', 'Faster pour'], show: (a) => !!a.s_easierBrand && a.s_easierBrand !== 'Same' },
     ],
   },
   {
     section: 'staff', key: 's_incentive', type: 'multi', q: 'What do you get from pushing one brand over another?', hint: 'Tick all that apply.',
     options: ['Cash or gifts from St. George', 'Cash or gifts from Habesha', 'Tips from customers', 'Owner tells us to', 'Rep relationship', 'Nothing'], none: 'Nothing',
-    choices: (a) => ['Cash or gifts from St. George', 'Cash or gifts from Habesha', 'Tips from customers', 'Owner tells us to', 'Rep relationship', 'Nothing'].filter((o) => (o.includes(SG) ? sells(a, SG) : o.includes(HB) ? sells(a, HB) : true)),
+    choices: byBrand,
   },
   {
     section: 'staff', key: 's_personal', type: 'pair', q: 'Which draught do you personally like?',
@@ -244,7 +244,7 @@ const BASE = [
   { section: 'staff', key: 's_quote', type: 'text', q: 'Best thing they said', hint: 'Their exact words. Optional.', placeholder: 'e.g. "Nobody asks, I just bring what is on the tap"' },
 
   // 4. Draught consumer: tonight's behaviour, no hypotheticals
-  { section: 'consumer', key: 'c_drinking', type: 'single', q: 'What beer is this right now?', hint: 'Ask before anything else. Note it if they don\'t know.', options: [SG, HB, 'Other', "Doesn't know"], choices: (a) => [...brandsHere(a), "Doesn't know"] },
+  { section: 'consumer', key: 'c_drinking', type: 'single', q: 'What beer is this right now?', hint: 'Ask before anything else. Note it if they don\'t know.', options: [SG, HB, 'Other', "Doesn't know"], choices: byBrand },
   {
     section: 'consumer', key: 'c_ordered', type: 'single', q: 'What did they say when they ordered?',
     options: ['Named a brand', 'Just "jambo" or "single"', 'A friend ordered for the table'],
@@ -302,9 +302,9 @@ const ratingBrands = (q, a) => (q.brands ? q.brands(a) : [SG, HB])
 const ratingKeys = (q, brands = [SG, HB]) => q.rows.flatMap(([r]) => brands.map((b) => `${q.prefix}${r}${BRAND_CODE[b]}`))
 
 // Every column a question fills, in sheet order
-const keysOf = (list) => list.flatMap((q) => {
+export const keysOf = (list) => list.flatMap((q) => {
   if (q.type === 'numbers') return q.fields.map((f) => f.key)
-  if (q.type === 'rating') return ratingKeys(q)
+  if (q.type === 'rating') return ratingKeys(q, q.allBrands || [SG, HB])
   if (q.type === 'pair') return q.parts.map((p) => p.key)
   const keys = [q.key]
   if (q.other) keys.push(q.key + 'Other')
@@ -316,56 +316,162 @@ export const ANSWER_KEYS = keysOf(BASE)
 
 /* ---------- questions the admin changes from the app ----------
    Rows come from the Questions tab of the sheet (see src/questions.js):
-   { key, section, after, type, q, hint, options[], unit, groups[], required, active }
-   A row with a built-in key rewords that question (q, hint) or turns it off.
-   A row with an x_ key is a question the admin added: one answer, tick all,
-   a number or a note, placed after the question named in `after`. */
+   { key, section, spec, active }. `spec` describes the question in plain data:
+
+     type        single | multi | numbers | rating | pair | text   (added questions)
+     q           wording;  qByGroup { lost, sg, hb } for wording per outlet group
+     title       short name in the results;  hint  note for the BA
+     options     answers (single, multi);  brandFilter  drop brands not sold here
+     other       the answer that opens a text box;  otherHint  its placeholder
+     follow      { when: 'any' | [answers], fields: [{ key, label, required, tel }] }
+     none        the answer that clears the others;  main { key, label }  "which matters most"
+     fields      [{ key, label, unit }], unit, max, digits   (numbers)
+     rows        [{ id, label }], perBrand   (rating, 1 to 5)
+     parts       [{ key, label, options }]   (pair)
+     placeholder (text);  required
+     groups      [lost, sg, hb] outlet groups that get it
+     when        { key, values } shown only when that answer is one of the values
+
+   For a built-in question the spec holds only what the admin changed; the
+   built-in rules (which brands are on tap, which group) still apply on top.
+   Rows keyed _order_<section> hold the question order of that section. */
 export const GROUP_CODE = { lost: GROUPS[0], sg: GROUPS[1], hb: GROUPS[2] }
+export const groupCode = (g) => Object.keys(GROUP_CODE).find((c) => GROUP_CODE[c] === g)
 export const BASE_QUESTIONS = BASE
 export let QUESTIONS = BASE
 export let CONFIG = []
 
-function customQuestion(r) {
-  const groups = (r.groups || []).map((g) => GROUP_CODE[g]).filter(Boolean)
-  const q = { section: r.section, key: r.key, q: r.q, hint: r.hint || undefined, custom: true, required: !!r.required }
-  if (groups.length && groups.length < GROUPS.length) q.show = (a) => groups.includes(a.group)
-  const options = (r.options || []).filter(Boolean)
-  if (r.type === 'single') return { ...q, type: 'single', options }
-  if (r.type === 'multi') return { ...q, type: 'multi', options, none: options.find((o) => /^(none|nothing|none seen)$/i.test(o)) }
-  if (r.type === 'number') return { ...q, type: 'numbers', fields: [{ key: r.key, label: r.unit || 'Number' }] }
-  return { ...q, type: 'text', placeholder: 'Their exact words' }
+const str = (v) => (typeof v === 'string' ? v.trim() : '')
+const list = (v) => (Array.isArray(v) ? v.map(str).filter(Boolean) : [])
+
+// Rows saved by the first version of the editor (type, q, hint, options, unit, groups, required)
+function legacySpec(r) {
+  if (r.spec && typeof r.spec === 'object') return r.spec
+  if (!/^x_/.test(r.key)) return { ...(r.q ? { q: r.q } : {}), ...(r.hint ? { hint: r.hint } : {}) }
+  const base = { q: r.q, hint: r.hint, groups: r.groups, required: !!r.required }
+  if (r.type === 'number') return { ...base, type: 'numbers', fields: [{ key: r.key, label: r.unit || 'Number' }] }
+  if (r.type === 'single' || r.type === 'multi') return { ...base, type: r.type, options: r.options }
+  return { ...base, type: 'text' }
 }
 
-// Every question with the admin's changes; `off` marks questions turned off
+// One question from its built-in form (or nothing, for an added one) and the admin's spec
+export function buildQuestion(base, spec, key, section) {
+  const sp = spec || {}
+  const has = (k) => Object.prototype.hasOwnProperty.call(sp, k)
+  const q = base ? { ...base } : { key, section, type: sp.type || 'single', custom: true }
+  if (base && Object.keys(sp).length) q.edited = true
+
+  const byGroup = sp.qByGroup && Object.values(sp.qByGroup).some(str) ? sp.qByGroup : null
+  if (byGroup) {
+    const fallback = str(sp.q) || (base ? base.q : '')
+    q.q = (a) => str(byGroup[groupCode(a.group)]) || (typeof fallback === 'function' ? fallback(a) : fallback)
+  } else if (str(sp.q)) q.q = str(sp.q)
+  if (str(sp.title)) q.title = str(sp.title)
+  else if (q.custom) q.title = str(sp.q) || (byGroup && Object.values(byGroup).map(str).find(Boolean)) || 'Question'
+  if (has('hint')) q.hint = str(sp.hint) || undefined
+  if (has('required')) q.required = !!sp.required
+  if (q.custom && !has('required')) q.required = q.type === 'single' || q.type === 'multi' || q.type === 'pair' || q.type === 'rating'
+
+  if (has('options')) q.options = list(sp.options)
+  if (has('other')) q.other = str(sp.other) || undefined
+  if (has('otherHint')) q.otherHint = str(sp.otherHint) || undefined
+  if (has('none')) q.none = str(sp.none) || undefined
+  if (has('main')) q.main = sp.main && str(sp.main.key) ? { key: str(sp.main.key), label: str(sp.main.label) || 'Which matters most?' } : undefined
+  if (has('follow')) {
+    const old = Object.fromEntries(((base && base.follow && base.follow.fields) || []).map((f) => [f.key, f]))
+    const fields = ((sp.follow && sp.follow.fields) || []).filter((f) => str(f.key))
+    q.follow = fields.length
+      ? {
+          when: sp.follow.when === 'any' ? 'any' : list(sp.follow.when),
+          fields: fields.map((f) => ({ ...(old[f.key] || {}), key: f.key, label: str(f.label) || 'Details', required: !!f.required, inputMode: f.tel ? 'tel' : undefined, placeholder: f.tel ? '09…' : (old[f.key] || {}).placeholder })),
+        }
+      : undefined
+  }
+  if (has('fields')) {
+    const old = Object.fromEntries(((base && base.fields) || []).map((f) => [f.key, f]))
+    q.fields = (sp.fields || []).filter((f) => str(f.key)).map((f) => ({ ...(old[f.key] || {}), key: f.key, label: str(f.label) || 'Number', unit: str(f.unit) || undefined }))
+  }
+  if (has('unit')) q.unit = str(sp.unit) || undefined
+  if (has('max')) q.max = sp.max === '' || sp.max == null ? undefined : Number(sp.max)
+  if (has('digits')) q.digits = Number(sp.digits) || undefined
+  if (has('rows')) q.rows = (sp.rows || []).filter((r) => str(r.id)).map((r) => [r.id, str(r.label) || 'Row'])
+  if (has('parts')) {
+    const old = Object.fromEntries(((base && base.parts) || []).map((p) => [p.key, p]))
+    q.parts = (sp.parts || []).filter((p) => str(p.key)).map((p) => ({ ...(old[p.key] || {}), key: p.key, label: str(p.label), options: list(p.options) }))
+  }
+  if (has('placeholder')) q.placeholder = str(sp.placeholder) || undefined
+
+  if (q.custom) {
+    if (q.type === 'numbers' && !q.fields) q.fields = []
+    if (q.type === 'rating') {
+      q.prefix = q.key + '_'
+      q.rows = q.rows || []
+      q.brands = sp.perBrand ? tapBrands : () => ['']
+      if (!sp.perBrand) q.allBrands = ['']
+    }
+    if (q.type === 'pair') q.parts = q.parts || []
+    if (q.type === 'text' && !q.placeholder) q.placeholder = 'Their exact words'
+    if (sp.brandFilter) {
+      if (q.type === 'pair') q.parts = q.parts.map((p) => ({ ...p, choices: byBrand }))
+      else q.choices = byBrand
+    }
+  }
+
+  // Who gets it: the built-in rule, then the admin's outlet groups and condition
+  const tests = []
+  if (base && base.show) tests.push(base.show)
+  const gs = list(sp.groups).map((c) => GROUP_CODE[c]).filter(Boolean)
+  if (gs.length && gs.length < GROUPS.length) tests.push((a) => gs.includes(a.group))
+  if (sp.when && str(sp.when.key) && list(sp.when.values).length) {
+    const k = sp.when.key, vals = list(sp.when.values)
+    tests.push((a) => (Array.isArray(a[k]) ? a[k].some((x) => vals.includes(x)) : vals.includes(a[k])))
+  }
+  if (q.custom && q.type === 'rating' && sp.perBrand) tests.push((a) => tapBrands(a).length > 0)
+  q.show = tests.length ? (a) => tests.every((t) => t(a)) : undefined
+  return q
+}
+
+// Every question with the admin's changes, in the admin's order; `off` marks questions turned off
 export function mergeQuestions(rows = []) {
-  const byKey = Object.fromEntries(rows.map((r) => [r.key, r]))
-  const list = BASE.map((b) => {
+  const byKey = {}
+  const order = {}
+  rows.forEach((r) => {
+    if (/^_order_/.test(r.key)) order[r.key.slice(7)] = list((r.spec || {}).order)
+    else byKey[r.key] = r
+  })
+  const all = BASE.map((b) => {
     const r = byKey[b.key]
     if (!r) return b
-    const q = { ...b, edited: !!(r.q || r.hint) }
-    if (r.q) { q.q = r.q; q.title = r.q }
-    if (r.hint) q.hint = r.hint
+    const q = buildQuestion(b, legacySpec(r))
     if (r.active === false) q.off = true
     return q
   })
-  const lastAfter = {}
-  rows.filter((r) => /^x_/.test(r.key) && SECTIONS.some((s) => s.id === r.section)).forEach((r) => {
-    const q = customQuestion(r)
+  // Added questions: after the question named in `after` (first editor), else at the end of their section
+  rows.filter((r) => /^x_/.test(r.key) && SECTIONS.some((x) => x.id === r.section)).forEach((r) => {
+    const q = buildQuestion(null, legacySpec(r), r.key, r.section)
     if (r.active === false) q.off = true
-    const anchor = lastAfter[r.after || '$' + r.section] || r.after
-    let at = -1
-    if (anchor === '^') at = list.findIndex((x) => x.section === r.section)
-    else if (anchor && list.some((x) => x.key === anchor && x.section === r.section)) at = list.findIndex((x) => x.key === anchor) + 1
-    if (at < 0) {
-      // End of its section
-      const order = SECTIONS.map((s) => s.id)
-      at = list.findIndex((x) => order.indexOf(x.section) > order.indexOf(r.section))
-      if (at < 0) at = list.length
+    let at = r.after && r.after !== '^' ? all.findIndex((x) => x.key === r.after && x.section === r.section) + 1 : -1
+    if (r.after === '^') at = all.findIndex((x) => x.section === r.section)
+    if (at <= 0 && r.after !== '^') {
+      const ids = SECTIONS.map((x) => x.id)
+      at = all.findIndex((x) => ids.indexOf(x.section) > ids.indexOf(r.section))
+      if (at < 0) at = all.length
     }
-    list.splice(at, 0, q)
-    lastAfter[r.after || '$' + r.section] = q.key
+    all.splice(at, 0, q)
   })
-  return list
+  // The admin's order per section; anything not in it keeps its place after the question before it
+  return SECTIONS.flatMap((sec) => {
+    const items = all.filter((x) => x.section === sec.id)
+    const ord = order[sec.id]
+    if (!ord || !ord.length) return items
+    let last = -1
+    const rank = items.map((x, i) => {
+      const r = ord.indexOf(x.key)
+      if (r > -1) last = r
+      return { x, r: r > -1 ? r : last + 0.5 + i / 1000 }
+    })
+    return rank.sort((p, q) => p.r - q.r).map((p) => p.x)
+  })
 }
 
 export function applyQuestionConfig(rows) {
@@ -373,10 +479,16 @@ export function applyQuestionConfig(rows) {
   QUESTIONS = mergeQuestions(CONFIG).filter((q) => !q.off)
 }
 
+// Sheet columns a question needs beyond the built-in ones, and whether they hold numbers
+export function extraColumns(q) {
+  const num = q.type === 'numbers' || q.type === 'rating'
+  return keysOf([q]).filter((k) => !ANSWER_KEYS.includes(k)).map((k) => ({ key: k, number: num && k !== q.key + 'Other' }))
+}
+
 export const isShown = (q, a) => !q.show || !!q.show(a)
 export const partShown = (p, a) => !p.show || !!p.show(a)
 // The answers a BA can pick for this outlet (some drop brands it doesn't sell)
-export const choicesOf = (q, a) => (q.choices ? q.choices(a) : q.options)
+export const choicesOf = (q, a) => (q.choices ? q.choices(a, q.options) : q.options)
 // The number boxes shown for this outlet
 export const fieldsOf = (q, a) => q.fields.filter((f) => !f.show || f.show(a))
 export { ratingBrands, followOn }
@@ -385,7 +497,9 @@ export { ratingBrands, followOn }
 export function answered(q, a) {
   const has = (k) => a[k] != null && String(a[k]).trim() !== ''
   // An added question the admin left optional can be passed over
-  if (q.custom && !q.required && !(Array.isArray(a[q.key]) ? a[q.key].length : has(q.key))) return true
+  if (q.required === false && (q.type === 'single' || q.type === 'multi') && !(Array.isArray(a[q.key]) ? a[q.key].length : has(q.key))) return true
+  if (q.required === false && q.type === 'pair' && !q.parts.some((p) => has(p.key))) return true
+  if (q.required === false && q.type === 'rating') return true
   switch (q.type) {
     case 'single':
       if (!has(q.key)) return false
@@ -425,7 +539,7 @@ export function pruneHidden(a) {
     if (q.type === 'numbers') q.fields.forEach((f) => { if (f.show && !f.show(out)) delete out[f.key] })
     const keep = (item, k) => {
       if (!item.choices || out[k] == null) return
-      const ok = item.choices(out)
+      const ok = item.choices(out, item.options)
       if (Array.isArray(out[k])) out[k] = out[k].filter((x) => ok.includes(x))
       else if (!ok.includes(out[k])) delete out[k]
     }

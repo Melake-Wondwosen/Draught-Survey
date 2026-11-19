@@ -1,7 +1,7 @@
 // The admin's question changes, kept on the phone so surveys work offline.
 // The server sends a new version when the admin saves; phones pick it up on
 // the next heartbeat (or when the home screen opens).
-import { fetchQuestions, saveQuestion as save } from './api'
+import { fetchQuestions, saveQuestions as save } from './api'
 import { applyQuestionConfig } from './questionnaire'
 
 const KEY = 'draught_questions_v1'
@@ -33,8 +33,9 @@ export function syncQuestions(version) {
   return running
 }
 
-export async function saveQuestion(row) {
-  const r = await save(row)
+// Saves one or more rows (a question, a section order) and reloads the questionnaire
+export async function saveQuestions(rows) {
+  const r = await save(Array.isArray(rows) ? rows : [rows])
   await syncQuestions()
   return r
 }

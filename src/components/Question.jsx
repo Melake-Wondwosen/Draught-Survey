@@ -57,7 +57,7 @@ function Single({ q, a, set, onPicked }) {
       </div>
       {showOther && (
         <div className="mt-4 anim-rise">
-          <input className={inputClass} value={a[q.key + 'Other'] || ''} onChange={(e) => set({ [q.key + 'Other']: e.target.value })} placeholder="Who?" autoFocus autoComplete="off" />
+          <input className={inputClass} value={a[q.key + 'Other'] || ''} onChange={(e) => set({ [q.key + 'Other']: e.target.value })} placeholder={q.otherHint || 'Say what'} autoFocus autoComplete="off" />
         </div>
       )}
       {showFollow && (

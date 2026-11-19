@@ -94,7 +94,7 @@ export const importOutlets = (rows) => authed('importOutlets', { rows })
 export const resolveFlag = (id) => authed('resolveFlag', { id })
 export const sendNotice = (target, title, body) => authed('sendNotice', { target, title, body })
 export const fetchQuestions = (version) => authed('questionnaire', { version })
-export const saveQuestion = (question) => authed('saveQuestion', { question })
+export const saveQuestions = (questions) => authed('saveQuestions', { questions })
 
 // Fire-and-forget for when the app is being hidden or closed
 export function beacon(action, body) {
