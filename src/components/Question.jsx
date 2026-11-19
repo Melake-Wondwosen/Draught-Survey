@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { BRAND_CODE, followOn, partShown, qText, ratingBrands } from '../questionnaire'
+import { BRAND_CODE, choicesOf, fieldsOf, followOn, partShown, qText, ratingBrands } from '../questionnaire'
 import { inputClass } from './ui'
 
 // One question on one screen. `onPicked` runs after a single-choice tap, so the
@@ -51,7 +51,7 @@ function Single({ q, a, set, onPicked }) {
   return (
     <>
       <div className="space-y-2.5 stagger">
-        {q.options.map((o, i) => (
+        {choicesOf(q, a).map((o, i) => (
           <Option key={o} i={i} label={o} on={value === o} onClick={() => choose(o)} />
         ))}
       </div>
@@ -106,7 +106,7 @@ function Multi({ q, a, set }) {
   return (
     <>
       <div className="space-y-2.5 stagger">
-        {q.options.map((o, i) => (
+        {choicesOf(q, a).map((o, i) => (
           <Option key={o} i={i} square label={o} on={list.includes(o)} onClick={() => toggle(o)} />
         ))}
       </div>
@@ -167,11 +167,12 @@ function Stepper({ label, unit, value, onChange, max, digits = 4 }) {
 }
 
 function Numbers({ q, a, set }) {
-  const sum = q.fields.reduce((s, f) => s + (Number(a[f.key]) || 0), 0)
+  const fields = fieldsOf(q, a)
+  const sum = fields.reduce((s, f) => s + (Number(a[f.key]) || 0), 0)
   return (
     <>
       <div className="space-y-2.5 stagger">
-        {q.fields.map((f, i) => (
+        {fields.map((f, i) => (
           <div key={f.key} style={{ '--i': i }}>
             <Stepper label={f.label} unit={f.unit || q.unit} max={q.max} digits={q.digits} value={a[f.key]} onChange={(v) => set({ [f.key]: v })} />
           </div>
@@ -265,7 +266,7 @@ function Pair({ q, a, set, onPicked }) {
           <div key={part.key} className="anim-rise">
             <p className="text-sm font-semibold text-ink/70 mb-2.5">{part.label}</p>
             <div className="grid grid-cols-2 gap-2.5">
-              {part.options.map((o) => {
+              {choicesOf(part, a).map((o) => {
                 const on = a[part.key] === o
                 return (
                   <button

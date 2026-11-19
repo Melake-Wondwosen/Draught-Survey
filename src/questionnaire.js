@@ -55,9 +55,17 @@ export const SECTIONS = [
 const onTap = (a, brand) => Array.isArray(a.o_onTap) && a.o_onTap.includes(brand)
 const tapBrands = (a) => [SG, HB].filter((b) => onTap(a, b))
 const notActive = (a) => a.group !== ACTIVE
+// Is this brand sold here? From the taps ticked in Observation; if Observation
+// was skipped, Habesha is only sold in a Habesha draught outlet.
+const tapKnown = (a) => Array.isArray(a.o_onTap) && a.o_onTap.length > 0
+const sells = (a, brand) => (tapKnown(a) ? a.o_onTap.includes(brand) : brand === HB ? a.group === ACTIVE : true)
+const brandsHere = (a) => [SG, HB, 'Other'].filter((b) => sells(a, b))
+// Brands the bar staff can compare: what is sold now, plus Habesha in a lost outlet (they poured it before)
+const staffBrands = (a) => { const b = brandsHere(a).filter((x) => x !== 'Other'); return a.group === LOST && !b.includes(HB) ? [...b, HB] : b }
 
 const BASE = [
   // 1. Outlet observation: watch the order habit before talking to anyone
+  { section: 'observe', key: 'o_onTap', type: 'multi', q: 'Which draught brands are on tap here?', hint: 'Tick all that apply.', options: [SG, HB, 'Other'], choices: (a) => (a.group === ACTIVE ? [SG, HB, 'Other'] : [SG, 'Other']) },
   {
     section: 'observe', key: 'o_orders', type: 'numbers', q: 'Watch the orders', hint: 'Over at least 2 rounds. Count every draught order you see.',
     fields: [
@@ -70,14 +78,23 @@ const BASE = [
   {
     section: 'observe', key: 'o_noBrand', type: 'pair', q: 'When someone orders without a brand',
     parts: [
-      { key: 'o_waiterAction', label: 'The waiter…', options: ['Brought St. George without asking', 'Brought Habesha without asking', 'Asked "which one?"', 'Saw no such order'] },
+      {
+        key: 'o_waiterAction', label: 'The waiter…',
+        options: ['Brought St. George without asking', 'Brought Habesha without asking', 'Brought another brand without asking', 'Asked "which one?"', 'Saw no such order'],
+        choices: (a) => [
+          ...(sells(a, SG) ? ['Brought St. George without asking'] : []),
+          ...(sells(a, HB) ? ['Brought Habesha without asking'] : []),
+          ...(sells(a, 'Other') ? ['Brought another brand without asking'] : []),
+          'Asked "which one?"', 'Saw no such order',
+        ],
+      },
       { key: 'o_whoDecides', label: 'Who really decides the brand?', options: ['The consumer', 'The waiter', 'The owner or manager', 'The barman'] },
     ],
   },
-  { section: 'observe', key: 'o_onTap', type: 'multi', q: 'Which draught brands are on tap here?', hint: 'Tick all that apply.', options: [SG, HB, 'Other'] },
   {
     section: 'observe', key: 'o_visible', type: 'multi', q: 'What brand do you see at the table and bar?', hint: 'Look at the glasses on the tables and the bar. Tick all.',
     options: ['St. George glass', 'Habesha glass', 'No branding at all'], none: 'No branding at all',
+    choices: (a) => (a.group === SGDOM ? ['St. George glass', 'No branding at all'] : ['St. George glass', 'Habesha glass', 'No branding at all']),
   },
   {
     section: 'observe', key: 'o_quality', type: 'rating', q: 'Draught quality check', hint: 'Order or watch a pour of each brand on tap. 1 = very poor, 5 = excellent.',
@@ -110,34 +127,42 @@ const BASE = [
   { section: 'manager', key: 'm_decider', type: 'single', q: 'Who decided which draught brands are sold at the bar?', options: ['Owner', 'Manager', 'Other'], other: 'Other' },
   {
     section: 'manager', key: 'm_kegs', type: 'numbers', q: 'Weekly draught kegs sold, by brand', hint: "Leave blank if they don't know.",
-    fields: [{ key: 'm_kegsStGeorge', label: SG }, { key: 'm_kegsHabesha', label: HB }, { key: 'm_kegsOther', label: 'Other' }], unit: 'kegs a week',
+    // A brand not sold here is 0 kegs, so keg share still counts the outlet
+    fields: [
+      { key: 'm_kegsStGeorge', label: SG, show: (a) => sells(a, SG), zeroWhenHidden: true },
+      { key: 'm_kegsHabesha', label: HB, show: (a) => sells(a, HB), zeroWhenHidden: true },
+      { key: 'm_kegsOther', label: 'Other', show: (a) => sells(a, 'Other'), zeroWhenHidden: true },
+    ], unit: 'kegs a week',
   },
   {
     section: 'manager', key: 'm_prices', type: 'numbers', q: 'Draught prices, in birr', hint: 'What they charge for a single and a jambo. Leave blank if not sold.', digits: 5,
     fields: [
-      { key: 'm_priceSingleStGeorge', label: `${SG} single`, unit: 'birr they charge' },
-      { key: 'm_priceJamboStGeorge', label: `${SG} jambo`, unit: 'birr they charge' },
-      { key: 'm_priceSingleHabesha', label: `${HB} single`, unit: 'birr they charge' },
-      { key: 'm_priceJamboHabesha', label: `${HB} jambo`, unit: 'birr they charge' },
+      { key: 'm_priceSingleStGeorge', label: `${SG} single`, unit: 'birr they charge', show: (a) => sells(a, SG) },
+      { key: 'm_priceJamboStGeorge', label: `${SG} jambo`, unit: 'birr they charge', show: (a) => sells(a, SG) },
+      { key: 'm_priceSingleHabesha', label: `${HB} single`, unit: 'birr they charge', show: (a) => sells(a, HB) },
+      { key: 'm_priceJamboHabesha', label: `${HB} jambo`, unit: 'birr they charge', show: (a) => sells(a, HB) },
     ],
   },
-  { section: 'manager', key: 'm_fastProfit', type: 'single', q: 'Which sells fastest and is most profitable?', options: [SG, HB, 'Other', 'About the same'] },
   {
-    section: 'manager', key: 'm_sgDrivers', type: 'multi', show: notActive,
+    section: 'manager', key: 'm_fastProfit', type: 'single', q: 'Which sells fastest and is most profitable?', options: [SG, HB, 'Other', 'About the same'],
+    choices: (a) => [...brandsHere(a), 'About the same'], show: (a) => brandsHere(a).length > 1,
+  },
+  {
+    section: 'manager', key: 'm_sgDrivers', type: 'multi', show: (a) => notActive(a) && sells(a, SG),
     q: (a) => (a.group === LOST ? 'What keeps St. George here instead of Habesha?' : 'What keeps St. George as the main draught here?'),
     title: 'What keeps St. George here', hint: 'Tick all that apply, then pick the main one.',
     options: ['Consumer demand', 'Better margin', 'Service quality', 'Draught machine performance (dispenser, cooler)', 'Trade marketing investments', 'Exclusivity deal', 'Sales team relationship'],
     main: { key: 'm_sgDriverMain', label: 'Which matters most?' },
   },
   {
-    section: 'manager', key: 'm_sgSupport', type: 'multi', show: notActive,
+    section: 'manager', key: 'm_sgSupport', type: 'multi', show: (a) => notActive(a) && sells(a, SG),
     q: 'What do you get from the St. George distributor?', hint: 'Tick all that apply.',
     options: ['Credit', 'Free kegs', 'Rebates / discounts', 'Dispenser, cooler or fridge', 'Branding and furniture', 'Regular rep visits', 'Cash sponsorship', 'Staff incentives', 'Nothing'], none: 'Nothing',
   },
   {
     section: 'manager', key: 'm_problems', type: 'pair', q: 'Problems with any brand?',
     parts: [
-      { key: 'm_problemBrand', label: 'Which brand gives you the most problems?', options: [SG, HB, 'Other', 'None'] },
+      { key: 'm_problemBrand', label: 'Which brand gives you the most problems?', options: [SG, HB, 'Other', 'None'], choices: (a) => [...brandsHere(a), 'None'] },
       { key: 'm_problem', label: 'What kind?', options: ['Delivery / stock-outs', 'Quality', 'Keg returns', 'Sales team service'], show: (a) => !!a.m_problemBrand && a.m_problemBrand !== 'None' },
     ],
   },
@@ -178,21 +203,22 @@ const BASE = [
   {
     section: 'staff', key: 's_jambo', type: 'pair', q: 'A customer says only "jambo". What do you bring?',
     parts: [
-      { key: 's_defaultServe', label: 'They bring', options: [SG, HB, 'Other'] },
+      { key: 's_defaultServe', label: 'They bring', options: [SG, HB, 'Other'], choices: brandsHere },
       { key: 's_defaultWhy', label: 'Why that one?', options: ['Always on tap', "Owner's instruction", 'Most customers want it', 'Brewery incentive', 'Habit'], show: (a) => !!a.s_defaultServe },
     ],
   },
-  { section: 'staff', key: 's_wrongBrand', type: 'single', q: 'What happens when you bring the wrong one?', options: ['Customer complains', "Customer doesn't notice", 'Customer accepts it'] },
+  { section: 'staff', key: 's_wrongBrand', type: 'single', q: 'What happens when you bring the wrong one?', show: (a) => brandsHere(a).length > 1, options: ['Customer complains', "Customer doesn't notice", 'Customer accepts it'] },
   {
-    section: 'staff', key: 's_easier', type: 'pair', q: 'Which beer makes your day easier?',
+    section: 'staff', key: 's_easier', type: 'pair', q: 'Which beer makes your day easier?', show: (a) => staffBrands(a).length > 1,
     parts: [
-      { key: 's_easierBrand', label: 'Easier to work with', options: [SG, HB, 'Same'] },
+      { key: 's_easierBrand', label: 'Easier to work with', options: [SG, HB, 'Same'], choices: (a) => [...staffBrands(a), 'Same'] },
       { key: 's_easierWhy', label: 'Why?', options: ['Less foam', 'Fewer keg changes', 'Fewer complaints', 'Faster pour'], show: (a) => !!a.s_easierBrand && a.s_easierBrand !== 'Same' },
     ],
   },
   {
     section: 'staff', key: 's_incentive', type: 'multi', q: 'What do you get from pushing one brand over another?', hint: 'Tick all that apply.',
     options: ['Cash or gifts from St. George', 'Cash or gifts from Habesha', 'Tips from customers', 'Owner tells us to', 'Rep relationship', 'Nothing'], none: 'Nothing',
+    choices: (a) => ['Cash or gifts from St. George', 'Cash or gifts from Habesha', 'Tips from customers', 'Owner tells us to', 'Rep relationship', 'Nothing'].filter((o) => (o.includes(SG) ? sells(a, SG) : o.includes(HB) ? sells(a, HB) : true)),
   },
   {
     section: 'staff', key: 's_personal', type: 'pair', q: 'Which draught do you personally like?',
@@ -203,7 +229,8 @@ const BASE = [
   },
   {
     section: 'staff', key: 's_foam', type: 'numbers', q: 'How many glasses per keg are lost to foam?', hint: 'Only brands they pour.',
-    fields: [{ key: 's_foamStGeorge', label: SG }, { key: 's_foamHabesha', label: HB }], unit: 'glasses per keg',
+    fields: [{ key: 's_foamStGeorge', label: SG, show: (a) => sells(a, SG) }, { key: 's_foamHabesha', label: HB, show: (a) => sells(a, HB) }], unit: 'glasses per keg',
+    show: (a) => sells(a, SG) || sells(a, HB),
   },
   { section: 'staff', key: 's_lineClean', type: 'single', q: 'When were the draught lines last cleaned?', options: ['This week', 'This month', 'Longer ago', "Don't know"] },
   {
@@ -217,7 +244,7 @@ const BASE = [
   { section: 'staff', key: 's_quote', type: 'text', q: 'Best thing they said', hint: 'Their exact words. Optional.', placeholder: 'e.g. "Nobody asks, I just bring what is on the tap"' },
 
   // 4. Draught consumer: tonight's behaviour, no hypotheticals
-  { section: 'consumer', key: 'c_drinking', type: 'single', q: 'What beer is this right now?', hint: 'Ask before anything else. Note it if they don\'t know.', options: [SG, HB, 'Other', "Doesn't know"] },
+  { section: 'consumer', key: 'c_drinking', type: 'single', q: 'What beer is this right now?', hint: 'Ask before anything else. Note it if they don\'t know.', options: [SG, HB, 'Other', "Doesn't know"], choices: (a) => [...brandsHere(a), "Doesn't know"] },
   {
     section: 'consumer', key: 'c_ordered', type: 'single', q: 'What did they say when they ordered?',
     options: ['Named a brand', 'Just "jambo" or "single"', 'A friend ordered for the table'],
@@ -237,9 +264,9 @@ const BASE = [
     options: ['Cold', 'Fresh taste', 'Good head of foam', 'Clean glass', 'Served fast', 'The brand'],
   },
   { section: 'consumer', key: 'c_groupDecides', type: 'single', q: 'Who in your group decides where to go and what is drunk?', options: ['Me', 'Someone else', 'We decide together', 'Came alone'] },
-  { section: 'consumer', key: 'c_everHabesha', type: 'single', q: 'Have you ever drunk Habesha draught?', hint: 'Only now, at the end, name Habesha.', options: ['Yes, regularly', 'Yes, in the past', 'Tried once', 'Never'] },
+  { section: 'consumer', key: 'c_everHabesha', type: 'single', q: 'Have you ever drunk Habesha draught?', show: (a) => a.c_drinking !== HB, hint: 'Only now, at the end, name Habesha.', options: ['Yes, regularly', 'Yes, in the past', 'Tried once', 'Never'] },
   {
-    section: 'consumer', key: 'c_whyNot', type: 'single', q: 'Why did you stop, or never drink it?', hint: 'Tick one.', show: (a) => a.c_everHabesha && a.c_everHabesha !== 'Yes, regularly',
+    section: 'consumer', key: 'c_whyNot', type: 'single', q: 'Why did you stop, or never drink it?', hint: 'Tick one.', show: (a) => a.c_drinking !== HB && a.c_everHabesha && a.c_everHabesha !== 'Yes, regularly',
     options: ['Not available', 'Taste', 'Inconsistent quality', 'Brand image', 'Never offered'],
   },
   { section: 'consumer', key: 'c_quote', type: 'text', q: 'Best thing they said', hint: 'Their exact words. Optional.', placeholder: 'e.g. "It\'s all the same, I don\'t care"' },
@@ -348,6 +375,10 @@ export function applyQuestionConfig(rows) {
 
 export const isShown = (q, a) => !q.show || !!q.show(a)
 export const partShown = (p, a) => !p.show || !!p.show(a)
+// The answers a BA can pick for this outlet (some drop brands it doesn't sell)
+export const choicesOf = (q, a) => (q.choices ? q.choices(a) : q.options)
+// The number boxes shown for this outlet
+export const fieldsOf = (q, a) => q.fields.filter((f) => !f.show || f.show(a))
 export { ratingBrands, followOn }
 
 // Whether a question has what it needs to move on
@@ -373,7 +404,7 @@ export function answered(q, a) {
         if (sum > q.total) return false
       }
       if (q.lte && q.lte.some(([x, y]) => has(x) && has(y) && Number(a[x]) > Number(a[y]))) return false
-      if (q.required && q.fields.some((f) => !has(f.key))) return false
+      if (q.required && fieldsOf(q, a).some((f) => !has(f.key))) return false
       return true
     case 'rating':
       return ratingKeys(q, ratingBrands(q, a)).every(has)
@@ -386,10 +417,20 @@ export function answered(q, a) {
   }
 }
 
-// Clears answers of questions that are hidden now (after a changed answer)
+// Clears answers of questions that are hidden now (after a changed answer),
+// number boxes no longer shown, and picks no longer on offer
 export function pruneHidden(a) {
   const out = { ...a }
   for (const q of QUESTIONS) {
+    if (q.type === 'numbers') q.fields.forEach((f) => { if (f.show && !f.show(out)) delete out[f.key] })
+    const keep = (item, k) => {
+      if (!item.choices || out[k] == null) return
+      const ok = item.choices(out)
+      if (Array.isArray(out[k])) out[k] = out[k].filter((x) => ok.includes(x))
+      else if (!ok.includes(out[k])) delete out[k]
+    }
+    keep(q, q.key)
+    if (q.type === 'pair') q.parts.forEach((p) => keep(p, p.key))
     if (isShown(q, out)) continue
     for (const k of keysOf([q])) delete out[k]
     followKeys(q).forEach((k) => delete out[k])
@@ -413,8 +454,10 @@ export function answersForSheet(a, skipped) {
         else if (real.includes(a[q.main.key])) out[q.main.key] = a[q.main.key]
       }
     } else if (q.type === 'numbers' || q.type === 'rating') {
-      const keys = q.type === 'numbers' ? q.fields.map((f) => f.key) : ratingKeys(q, ratingBrands(q, a))
+      const keys = q.type === 'numbers' ? fieldsOf(q, a).map((f) => f.key) : ratingKeys(q, ratingBrands(q, a))
       keys.forEach((k) => { if (a[k] !== '' && a[k] != null) out[k] = Number(a[k]) })
+      // A brand not sold here: 0 kegs (only when the outlet gave any count)
+      if (q.type === 'numbers' && keys.some((k) => a[k] !== '' && a[k] != null)) q.fields.forEach((f) => { if (f.zeroWhenHidden && !keys.includes(f.key)) out[f.key] = 0 })
     } else if (q.type === 'pair') {
       q.parts.forEach((p) => partShown(p, a) && put(p.key))
     } else if (q.type === 'text') {

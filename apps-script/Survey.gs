@@ -57,7 +57,7 @@ var NATIONAL_SHEET = 'National Outlet';
 // Draught Market Visit Questionnaire. One column per answer, in this order.
 // Keep the same as ANSWER_KEYS in src/questionnaire.js.
 var ANSWER_KEYS = [
-  'o_drinkersNow', 'o_ordersWatched', 'o_ordersNamed', 'o_waiterAction', 'o_whoDecides', 'o_onTap',
+  'o_onTap', 'o_drinkersNow', 'o_ordersWatched', 'o_ordersNamed', 'o_waiterAction', 'o_whoDecides',
   'o_visible', 'o_qualityTempSG', 'o_qualityTempHB', 'o_qualityFreshSG', 'o_qualityFreshHB',
   'o_qualityPourSG', 'o_qualityPourHB', 'o_qualityFoamSG', 'o_qualityFoamHB', 'o_qualityGlassSG',
   'o_qualityGlassHB', 'o_push', 'o_age', 'o_gender', 'o_company', 'o_rush', 'o_prefer', 'o_peak',

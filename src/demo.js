@@ -1,5 +1,5 @@
 // Made-up data for demo builds only (vite --mode demo). Never shipped to BAs.
-import { BRAND_CODE, GROUPS, QUESTIONS, SECTIONS, answersForSheet, followOn, isShown, partShown, ratingBrands } from './questionnaire'
+import { BRAND_CODE, GROUPS, QUESTIONS, SECTIONS, answersForSheet, choicesOf, fieldsOf, followOn, isShown, partShown, ratingBrands } from './questionnaire'
 
 // Made-up divisions and agents for the demo analysis
 const DEMO_GEO = [
@@ -47,8 +47,9 @@ function build() {
         if (rnd() < 0.12) return skipped.push(sec.id)
         QUESTIONS.filter((q) => q.section === sec.id).forEach((q) => {
           if (!isShown(q, a)) return
+          const opts = q.options ? choicesOf(q, a) : []
           if (q.type === 'single') {
-            a[q.key] = weight(q.options, q.options.includes('St. George') ? 'St. George' : null)
+            a[q.key] = weight(opts, opts.includes('St. George') ? 'St. George' : null)
             if (q.other && a[q.key] === q.other) a[q.key + 'Other'] = 'Partner'
             if (q.key === 'c_qaInvite') a[q.key] = rnd() < 0.3 ? q.options[0] : rnd() < 0.5 ? q.options[1] : q.options[2]
             if (q.key === 'a_likelihood') a[q.key] = pick(['High', 'Medium', 'Medium', 'Low'])
@@ -57,11 +58,11 @@ function build() {
               q.follow.fields.forEach((f) => { if (f.required || rnd() < 0.6) a[f.key] = pick(sample[f.key] || ['Sample']) })
             }
           } else if (q.type === 'multi') {
-            a[q.key] = q.none && rnd() < 0.2 ? [q.none] : q.options.filter((x) => x !== q.none && rnd() < 0.4)
-            if (!a[q.key].length) a[q.key] = [q.options[0]]
+            a[q.key] = q.none && rnd() < 0.2 ? [q.none] : opts.filter((x) => x !== q.none && rnd() < 0.4)
+            if (!a[q.key].length) a[q.key] = [opts[0]]
             if (q.main) { const real = a[q.key].filter((x) => x !== q.none); if (real.length) a[q.main.key] = pick(real) }
           } else if (q.type === 'numbers') {
-            q.fields.forEach((f, j) => {
+            fieldsOf(q, a).forEach((f, j) => {
               if (rnd() < 0.15) return
               const hb = f.label === 'Habesha'
               const OBS = {
@@ -88,7 +89,7 @@ function build() {
             }[q.key]
             if (said && rnd() < 0.7) a[q.key] = pick(said)
           } else if (q.type === 'pair') {
-            q.parts.forEach((p) => { if (partShown(p, a)) a[p.key] = pick(p.options) })
+            q.parts.forEach((p) => { if (partShown(p, a)) a[p.key] = pick(choicesOf(p, a)) })
           }
         })
       })

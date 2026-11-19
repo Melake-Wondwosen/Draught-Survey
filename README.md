@@ -20,6 +20,8 @@ Built on the Draught Immersion Field Kit (Addis Ababa, high-end outlets), one qu
 7. Your assessment, 1 question (a_likelihood): chance of conversion, High, Medium or Low.
 8. Review, then Submit.
 
+Questions follow the outlet group and the brands ticked as on tap (the first observation question; Habesha is only offered in a Habesha draught outlet). A brand not sold there drops out of the answers: the waiter's no-brand order, weekly kegs (written as 0), prices, fastest and most profitable, problems, what the staff bring, foam loss, incentives and what the consumer is drinking. Questions that need two brands (fastest and most profitable, wrong brand, which is easier to work with) are skipped when only one is sold; St. George questions are skipped where St. George isn't sold; "Have you ever drunk Habesha?" is skipped when they are drinking Habesha. If Observation is skipped, Habesha counts as sold only in a Habesha draught outlet.
+
 Each section starts with a short intro from the kit and can be skipped when nobody is available ("skipped" column).
 
 The field kit guides are in the app in Amharic: the observation sheet on the Observation intro, and the customer conversation guide on the Bar staff (waiter) and Owner / manager intros. A Guide button (መመሪያ) on every question of those sections opens it again. The text is in `src/guides.js`.
@@ -36,7 +38,7 @@ Changes are kept in the Questions tab of the sheet and reach the phones on their
 
 ## Before you leave the field
 
-The BA home screen shows today's field check against the kit's daily targets: 8 venues, 15 orders watched, 4 talks with bar staff, 2 with owners, 6 quotes. It counts from surveys sent on that phone today.
+The BA home screen shows today's field check against the kit's daily targets: 8 outlets visited, 15 orders watched, 4 interviews with bar staff, 2 interviews with owners, 6 quotes. It counts from surveys sent on that phone today.
 
 ## Analysis
 

@@ -195,10 +195,10 @@ export default function Home() {
 
 // The field kit's checklist: don't leave the field until every line is ticked
 const FIELD_ROWS = [
-  ['venues', 'Venues visited'],
+  ['venues', 'Outlets visited'],
   ['orders', 'Orders watched'],
-  ['servers', 'Talks with bar staff'],
-  ['owners', 'Talks with owners'],
+  ['servers', 'Interviews with bar staff'],
+  ['owners', 'Interviews with owners'],
   ['quotes', 'Quotes noted'],
 ]
 function FieldCheck({ field }) {
