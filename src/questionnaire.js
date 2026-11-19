@@ -22,8 +22,8 @@ export const SG = 'St. George'
 export const HB = 'Habesha'
 export const BRAND_CODE = { [SG]: 'SG', [HB]: 'HB' }
 
-export const GROUPS = ['Lost Habesha outlet', 'St. George-dominant (never Habesha)', 'Active Habesha outlet']
-const LOST = GROUPS[0], SGDOM = GROUPS[1], ACTIVE = GROUPS[2]
+export const GROUPS = ['Lost Habesha outlet', 'St. George-dominant (never Habesha)', 'Habesha draught outlet']
+const LOST = GROUPS[0], SGDOM = GROUPS[1], ACTIVE = GROUPS[2] // ACTIVE = Habesha draught outlet
 
 export const SECTIONS = [
   {
@@ -56,14 +56,14 @@ const onTap = (a, brand) => Array.isArray(a.o_onTap) && a.o_onTap.includes(brand
 const tapBrands = (a) => [SG, HB].filter((b) => onTap(a, b))
 const notActive = (a) => a.group !== ACTIVE
 
-export const QUESTIONS = [
+const BASE = [
   // 1. Outlet observation: watch the order habit before talking to anyone
   {
     section: 'observe', key: 'o_orders', type: 'numbers', q: 'Watch the orders', hint: 'Over at least 2 rounds. Count every draught order you see.',
     fields: [
-      { key: 'o_drinkersNow', label: 'Draught drinkers', unit: 'people right now' },
-      { key: 'o_ordersWatched', label: 'Orders watched', unit: 'draught orders' },
-      { key: 'o_ordersNamed', label: 'Named a brand', unit: 'the rest said "jambo" or "single"' },
+      { key: 'o_drinkersNow', label: 'Draught consumers', unit: 'people right now' },
+      { key: 'o_ordersWatched', label: 'Orders observed', unit: 'draught orders' },
+      { key: 'o_ordersNamed', label: 'Named a brand', unit: 'the rest said "Jambo" or "Single"' },
     ],
     lte: [['o_ordersNamed', 'o_ordersWatched']],
   },
@@ -71,13 +71,13 @@ export const QUESTIONS = [
     section: 'observe', key: 'o_noBrand', type: 'pair', q: 'When someone orders without a brand',
     parts: [
       { key: 'o_waiterAction', label: 'The waiter…', options: ['Brought St. George without asking', 'Brought Habesha without asking', 'Asked "which one?"', 'Saw no such order'] },
-      { key: 'o_whoDecides', label: 'Who really decides the brand?', options: ['The drinker', 'The waiter', 'The owner'] },
+      { key: 'o_whoDecides', label: 'Who really decides the brand?', options: ['The consumer', 'The waiter', 'The owner or manager', 'The barman'] },
     ],
   },
   { section: 'observe', key: 'o_onTap', type: 'multi', q: 'Which draught brands are on tap here?', hint: 'Tick all that apply.', options: [SG, HB, 'Other'] },
   {
-    section: 'observe', key: 'o_visible', type: 'multi', q: 'What brand do you see at the table and bar?', hint: 'Glassware, tap handles, signage, fridges. Tick all.',
-    options: ['St. George glassware', 'St. George tap, signs or fridge', 'Habesha glassware', 'Habesha tap, signs or fridge', 'No branding at all'], none: 'No branding at all',
+    section: 'observe', key: 'o_visible', type: 'multi', q: 'What brand do you see at the table and bar?', hint: 'Look at the glasses on the tables and the bar. Tick all.',
+    options: ['St. George glass', 'Habesha glass', 'No branding at all'], none: 'No branding at all',
   },
   {
     section: 'observe', key: 'o_quality', type: 'rating', q: 'Draught quality check', hint: 'Order or watch a pour of each brand on tap. 1 = very poor, 5 = excellent.',
@@ -86,7 +86,7 @@ export const QUESTIONS = [
   },
   {
     section: 'observe', key: 'o_push', type: 'multi', q: 'Anyone pushing a brand?', hint: 'Tick all you see.',
-    options: ['Waiter pushed a brand', 'Brand rep in the outlet', 'Promotion or giveaway running', 'None seen'], none: 'None seen',
+    options: ['Waiter pushed a brand', 'Promotion or giveaway running', 'None seen'], none: 'None seen',
   },
   {
     section: 'observe', key: 'o_drinkers', type: 'pair', q: 'Who drinks draught here',
@@ -102,47 +102,31 @@ export const QUESTIONS = [
       { key: 'o_rush', label: 'How busy is it?', options: ['Quiet', 'Busy', 'Rush, slow service'] },
     ],
   },
-  {
-    section: 'observe', key: 'o_waiters', type: 'numbers', q: 'Waiters and bar staff working now', share: true,
-    fields: [{ key: 'o_waitersMen', label: 'Men', unit: 'people' }, { key: 'o_waitersWomen', label: 'Women', unit: 'people' }],
-  },
-  {
-    section: 'observe', key: 'o_preference', type: 'pair', q: 'Draught or bottled beer?',
-    parts: [
-      { key: 'o_prefer', label: 'Most customers drink', options: ['Draught', 'Bottled (RGB)', 'About the same'] },
-      { key: 'o_preferWhy', label: 'Why?', options: ['Price & affordability', 'Trend', 'Freshness', 'Other'], show: (a) => !!a.o_prefer && a.o_prefer !== 'About the same' },
-    ],
-  },
+  { section: 'observe', key: 'o_prefer', type: 'single', q: 'Draught or bottled beer?', hint: 'What most customers drink.', options: ['Draught', 'Bottled (RGB)', 'About the same'] },
   { section: 'observe', key: 'o_peak', type: 'single', q: 'When do most people drink draught here?', hint: "Ask the staff if you're not sure.", options: ['Morning', 'Afternoon', 'Evening'] },
   { section: 'observe', key: 'o_surprise', type: 'text', q: 'Anything that surprised you?', hint: 'Exact words and behaviour, not opinions. Optional.', placeholder: 'He said "two jambo" and didn\'t look up' },
 
   // 2. Outlet owner / manager
-  { section: 'manager', key: 'm_decider', type: 'single', q: 'Who decided which draught brands are on tap?', options: ['Owner', 'Manager', 'Other'], other: 'Other' },
+  { section: 'manager', key: 'm_decider', type: 'single', q: 'Who decided which draught brands are sold at the bar?', options: ['Owner', 'Manager', 'Other'], other: 'Other' },
   {
     section: 'manager', key: 'm_kegs', type: 'numbers', q: 'Weekly draught kegs sold, by brand', hint: "Leave blank if they don't know.",
     fields: [{ key: 'm_kegsStGeorge', label: SG }, { key: 'm_kegsHabesha', label: HB }, { key: 'm_kegsOther', label: 'Other' }], unit: 'kegs a week',
   },
   {
-    section: 'manager', key: 'm_prices', type: 'numbers', q: 'Draught prices, in birr', hint: 'What they pay for a keg and charge for a glass. Leave blank if not sold.', digits: 6,
+    section: 'manager', key: 'm_prices', type: 'numbers', q: 'Draught prices, in birr', hint: 'What they charge for a single and a jambo. Leave blank if not sold.', digits: 5,
     fields: [
-      { key: 'm_priceKegStGeorge', label: `${SG} keg`, unit: 'birr they pay' },
-      { key: 'm_priceGlassStGeorge', label: `${SG} glass`, unit: 'birr they charge' },
-      { key: 'm_priceKegHabesha', label: `${HB} keg`, unit: 'birr they pay' },
-      { key: 'm_priceGlassHabesha', label: `${HB} glass`, unit: 'birr they charge' },
+      { key: 'm_priceSingleStGeorge', label: `${SG} single`, unit: 'birr they charge' },
+      { key: 'm_priceJamboStGeorge', label: `${SG} jambo`, unit: 'birr they charge' },
+      { key: 'm_priceSingleHabesha', label: `${HB} single`, unit: 'birr they charge' },
+      { key: 'm_priceJamboHabesha', label: `${HB} jambo`, unit: 'birr they charge' },
     ],
   },
-  {
-    section: 'manager', key: 'm_moneyFast', type: 'pair', q: 'Margin and speed',
-    parts: [
-      { key: 'm_mostMoney', label: 'Which makes you the most money per keg?', options: [SG, HB, 'Other', 'About the same'] },
-      { key: 'm_sellsFastest', label: 'Which sells fastest?', options: [SG, HB, 'Other', 'About the same'] },
-    ],
-  },
+  { section: 'manager', key: 'm_fastProfit', type: 'single', q: 'Which sells fastest and is most profitable?', options: [SG, HB, 'Other', 'About the same'] },
   {
     section: 'manager', key: 'm_sgDrivers', type: 'multi', show: notActive,
     q: (a) => (a.group === LOST ? 'What keeps St. George here instead of Habesha?' : 'What keeps St. George as the main draught here?'),
     title: 'What keeps St. George here', hint: 'Tick all that apply, then pick the main one.',
-    options: ['Consumer demand', 'Better margin', 'Credit terms', 'Equipment (dispenser, cooler)', 'Reliable supply', 'Competitor investment', 'Contract / exclusivity', 'Rep relationship'],
+    options: ['Consumer demand', 'Better margin', 'Service quality', 'Draught machine performance (dispenser, cooler)', 'Trade marketing investments', 'Exclusivity deal', 'Sales team relationship'],
     main: { key: 'm_sgDriverMain', label: 'Which matters most?' },
   },
   {
@@ -154,7 +138,7 @@ export const QUESTIONS = [
     section: 'manager', key: 'm_problems', type: 'pair', q: 'Problems with any brand?',
     parts: [
       { key: 'm_problemBrand', label: 'Which brand gives you the most problems?', options: [SG, HB, 'Other', 'None'] },
-      { key: 'm_problem', label: 'What kind?', options: ['Delivery / stock-outs', 'Quality', 'Keg returns', 'Payment terms', 'Rep service'], show: (a) => !!a.m_problemBrand && a.m_problemBrand !== 'None' },
+      { key: 'm_problem', label: 'What kind?', options: ['Delivery / stock-outs', 'Quality', 'Keg returns', 'Sales team service'], show: (a) => !!a.m_problemBrand && a.m_problemBrand !== 'None' },
     ],
   },
   {
@@ -290,8 +274,8 @@ const followOn = (q, a) => !!q.follow && !!a[q.key] && (q.follow.when === 'any' 
 const ratingBrands = (q, a) => (q.brands ? q.brands(a) : [SG, HB])
 const ratingKeys = (q, brands = [SG, HB]) => q.rows.flatMap(([r]) => brands.map((b) => `${q.prefix}${r}${BRAND_CODE[b]}`))
 
-// Every column a survey can fill, in sheet order
-export const ANSWER_KEYS = QUESTIONS.flatMap((q) => {
+// Every column a question fills, in sheet order
+const keysOf = (list) => list.flatMap((q) => {
   if (q.type === 'numbers') return q.fields.map((f) => f.key)
   if (q.type === 'rating') return ratingKeys(q)
   if (q.type === 'pair') return q.parts.map((p) => p.key)
@@ -300,6 +284,67 @@ export const ANSWER_KEYS = QUESTIONS.flatMap((q) => {
   if (q.main) keys.push(q.main.key)
   return keys.concat(followKeys(q))
 })
+// The built-in columns. Survey.gs has the same list; questions the admin adds get their own columns after these.
+export const ANSWER_KEYS = keysOf(BASE)
+
+/* ---------- questions the admin changes from the app ----------
+   Rows come from the Questions tab of the sheet (see src/questions.js):
+   { key, section, after, type, q, hint, options[], unit, groups[], required, active }
+   A row with a built-in key rewords that question (q, hint) or turns it off.
+   A row with an x_ key is a question the admin added: one answer, tick all,
+   a number or a note, placed after the question named in `after`. */
+export const GROUP_CODE = { lost: GROUPS[0], sg: GROUPS[1], hb: GROUPS[2] }
+export const BASE_QUESTIONS = BASE
+export let QUESTIONS = BASE
+export let CONFIG = []
+
+function customQuestion(r) {
+  const groups = (r.groups || []).map((g) => GROUP_CODE[g]).filter(Boolean)
+  const q = { section: r.section, key: r.key, q: r.q, hint: r.hint || undefined, custom: true, required: !!r.required }
+  if (groups.length && groups.length < GROUPS.length) q.show = (a) => groups.includes(a.group)
+  const options = (r.options || []).filter(Boolean)
+  if (r.type === 'single') return { ...q, type: 'single', options }
+  if (r.type === 'multi') return { ...q, type: 'multi', options, none: options.find((o) => /^(none|nothing|none seen)$/i.test(o)) }
+  if (r.type === 'number') return { ...q, type: 'numbers', fields: [{ key: r.key, label: r.unit || 'Number' }] }
+  return { ...q, type: 'text', placeholder: 'Their exact words' }
+}
+
+// Every question with the admin's changes; `off` marks questions turned off
+export function mergeQuestions(rows = []) {
+  const byKey = Object.fromEntries(rows.map((r) => [r.key, r]))
+  const list = BASE.map((b) => {
+    const r = byKey[b.key]
+    if (!r) return b
+    const q = { ...b, edited: !!(r.q || r.hint) }
+    if (r.q) { q.q = r.q; q.title = r.q }
+    if (r.hint) q.hint = r.hint
+    if (r.active === false) q.off = true
+    return q
+  })
+  const lastAfter = {}
+  rows.filter((r) => /^x_/.test(r.key) && SECTIONS.some((s) => s.id === r.section)).forEach((r) => {
+    const q = customQuestion(r)
+    if (r.active === false) q.off = true
+    const anchor = lastAfter[r.after || '$' + r.section] || r.after
+    let at = -1
+    if (anchor === '^') at = list.findIndex((x) => x.section === r.section)
+    else if (anchor && list.some((x) => x.key === anchor && x.section === r.section)) at = list.findIndex((x) => x.key === anchor) + 1
+    if (at < 0) {
+      // End of its section
+      const order = SECTIONS.map((s) => s.id)
+      at = list.findIndex((x) => order.indexOf(x.section) > order.indexOf(r.section))
+      if (at < 0) at = list.length
+    }
+    list.splice(at, 0, q)
+    lastAfter[r.after || '$' + r.section] = q.key
+  })
+  return list
+}
+
+export function applyQuestionConfig(rows) {
+  CONFIG = Array.isArray(rows) ? rows : []
+  QUESTIONS = mergeQuestions(CONFIG).filter((q) => !q.off)
+}
 
 export const isShown = (q, a) => !q.show || !!q.show(a)
 export const partShown = (p, a) => !p.show || !!p.show(a)
@@ -308,6 +353,8 @@ export { ratingBrands, followOn }
 // Whether a question has what it needs to move on
 export function answered(q, a) {
   const has = (k) => a[k] != null && String(a[k]).trim() !== ''
+  // An added question the admin left optional can be passed over
+  if (q.custom && !q.required && !(Array.isArray(a[q.key]) ? a[q.key].length : has(q.key))) return true
   switch (q.type) {
     case 'single':
       if (!has(q.key)) return false
@@ -326,11 +373,14 @@ export function answered(q, a) {
         if (sum > q.total) return false
       }
       if (q.lte && q.lte.some(([x, y]) => has(x) && has(y) && Number(a[x]) > Number(a[y]))) return false
+      if (q.required && q.fields.some((f) => !has(f.key))) return false
       return true
     case 'rating':
       return ratingKeys(q, ratingBrands(q, a)).every(has)
     case 'pair':
       return q.parts.every((p) => !partShown(p, a) || has(p.key))
+    case 'text':
+      return !q.required || has(q.key)
     default:
       return true
   }
@@ -341,7 +391,7 @@ export function pruneHidden(a) {
   const out = { ...a }
   for (const q of QUESTIONS) {
     if (isShown(q, out)) continue
-    for (const k of ANSWER_KEYS.filter((k) => k === q.key || k.startsWith(q.key))) delete out[k]
+    for (const k of keysOf([q])) delete out[k]
     followKeys(q).forEach((k) => delete out[k])
     if (q.main) delete out[q.main.key]
   }

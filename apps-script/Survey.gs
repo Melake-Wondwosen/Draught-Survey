@@ -1,5 +1,5 @@
 /**
- * Draught Survey backend (Draught Market Visit Questionnaire). Standalone: it has its own spreadsheet and its own
+ * Draught Survey backend (Draught Immersion Field Kit questionnaire). Standalone: it has its own spreadsheet and its own
  * Apps Script project, separate from the outlet survey and the wheel app.
  *
  * Setup:
@@ -50,6 +50,8 @@ var LOGINS_SHEET = 'Logins';
 var FLAGS_SHEET = 'Flags';
 var OUTLETS_SHEET = 'Outlets';
 var NOTICES_SHEET = 'Notifications';
+// Questions the admin added, reworded or turned off from the app
+var QUESTIONS_SHEET = 'Questions';
 // Master outlet data. The BA types only the ID; everything else comes from here.
 var NATIONAL_SHEET = 'National Outlet';
 // Draught Market Visit Questionnaire. One column per answer, in this order.
@@ -58,20 +60,19 @@ var ANSWER_KEYS = [
   'o_drinkersNow', 'o_ordersWatched', 'o_ordersNamed', 'o_waiterAction', 'o_whoDecides', 'o_onTap',
   'o_visible', 'o_qualityTempSG', 'o_qualityTempHB', 'o_qualityFreshSG', 'o_qualityFreshHB',
   'o_qualityPourSG', 'o_qualityPourHB', 'o_qualityFoamSG', 'o_qualityFoamHB', 'o_qualityGlassSG',
-  'o_qualityGlassHB', 'o_push', 'o_age', 'o_gender', 'o_company', 'o_rush', 'o_waitersMen', 'o_waitersWomen',
-  'o_prefer', 'o_preferWhy', 'o_peak', 'o_surprise', 'm_decider', 'm_deciderOther', 'm_kegsStGeorge',
-  'm_kegsHabesha', 'm_kegsOther', 'm_priceKegStGeorge', 'm_priceGlassStGeorge', 'm_priceKegHabesha',
-  'm_priceGlassHabesha', 'm_mostMoney', 'm_sellsFastest', 'm_sgDrivers', 'm_sgDriverMain', 'm_sgSupport',
-  'm_problemBrand', 'm_problem', 'm_agreement', 'm_agreementEnds', 'm_lostWhen', 'm_hbStopReason',
-  'm_hbStopWords', 'm_winBack', 'm_winBackMain', 'm_stopper', 'm_hbPotential', 'm_trial', 's_defaultServe',
-  's_defaultWhy', 's_wrongBrand', 's_easierBrand', 's_easierWhy', 's_incentive', 's_personalBrand',
-  's_personalWhy', 's_foamStGeorge', 's_foamHabesha', 's_lineClean', 's_removedReason', 's_reason',
-  's_quote', 'c_drinking', 'c_ordered', 'c_orderWords', 'c_sizePick', 'c_sizeWhy', 'c_swapped', 'c_blame',
-  'c_goodDraught', 'c_groupDecides', 'c_everHabesha', 'c_whyNot', 'c_quote', 'c_qaInvite', 'c_qaName',
-  'c_qaPhone', 'c_qaWhen', 'a_likelihood'
+  'o_qualityGlassHB', 'o_push', 'o_age', 'o_gender', 'o_company', 'o_rush', 'o_prefer', 'o_peak',
+  'o_surprise', 'm_decider', 'm_deciderOther', 'm_kegsStGeorge', 'm_kegsHabesha', 'm_kegsOther',
+  'm_priceSingleStGeorge', 'm_priceJamboStGeorge', 'm_priceSingleHabesha', 'm_priceJamboHabesha',
+  'm_fastProfit', 'm_sgDrivers', 'm_sgDriverMain', 'm_sgSupport', 'm_problemBrand', 'm_problem',
+  'm_agreement', 'm_agreementEnds', 'm_lostWhen', 'm_hbStopReason', 'm_hbStopWords', 'm_winBack',
+  'm_winBackMain', 'm_stopper', 'm_hbPotential', 'm_trial', 's_defaultServe', 's_defaultWhy', 's_wrongBrand',
+  's_easierBrand', 's_easierWhy', 's_incentive', 's_personalBrand', 's_personalWhy', 's_foamStGeorge',
+  's_foamHabesha', 's_lineClean', 's_removedReason', 's_reason', 's_quote', 'c_drinking', 'c_ordered',
+  'c_orderWords', 'c_sizePick', 'c_sizeWhy', 'c_swapped', 'c_blame', 'c_goodDraught', 'c_groupDecides',
+  'c_everHabesha', 'c_whyNot', 'c_quote', 'c_qaInvite', 'c_qaName', 'c_qaPhone', 'c_qaWhen', 'a_likelihood'
 ];
 // Answers that are numbers (kegs, counts, 1-5 ratings); every other answer is text
-var NUMBER_ANSWER = /^(m_kegs|m_price|m_hbPotential|s_foam|o_quality|o_drinkersNow|o_orders|o_waiters)/;
+var NUMBER_ANSWER = /^(m_kegs|m_price|m_hbPotential|s_foam|o_quality|o_drinkersNow|o_orders)/;
 var ROLES = ['ba', 'manager', 'admin'];
 // A survey further than this from its outlet's coordinates raises an alert
 var OUTLET_RANGE_M = 100;
@@ -88,7 +89,8 @@ var SHEET_HEADERS = {
   Logins: ['date', 'baId', 'baName', 'role', 'lat', 'lng', 'accuracy', 'device'],
   Flags: ['id', 'date', 'baId', 'baName', 'type', 'detail', 'status', 'resolvedBy', 'resolvedAt'],
   Outlets: ['key', 'outletId', 'outletName', 'status', 'requestedBy', 'requestedByName', 'lat', 'lng', 'createdAt', 'updatedAt'],
-  Notifications: ['id', 'date', 'fromId', 'fromName', 'target', 'kind', 'title', 'body']
+  Notifications: ['id', 'date', 'fromId', 'fromName', 'target', 'kind', 'title', 'body'],
+  Questions: ['key', 'section', 'after', 'type', 'q', 'hint', 'options', 'unit', 'groups', 'required', 'active', 'updatedAt', 'updatedBy']
 };
 
 // Columns that must stay text (stops "0012" becoming 12, keeps ISO dates as typed)
@@ -97,6 +99,12 @@ var TEXT_COLS = ['id', 'username', 'password', 'name', 'active', 'key', 'date', 
   'requestedBy', 'requestedByName', 'createdAt', 'updatedAt', 'resolvedBy', 'resolvedAt',
   'fromId', 'fromName', 'target', 'kind', 'title', 'body', 'division', 'agent', 'parentTerritory', 'territory', 'startedAt', 'area', 'group', 'skipped']
   .concat(ANSWER_KEYS.filter(function (k) { return !NUMBER_ANSWER.test(k); }));
+
+// A column that must stay text: the fixed list, plus answers to added questions (except numbers)
+function textCol_(h) {
+  if (TEXT_COLS.indexOf(h) > -1) return true;
+  return String(h).indexOf('x_') === 0 && customTypes_()[h] !== 'number';
+}
 
 function surveyJson_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
@@ -119,7 +127,9 @@ function surveyRoute_(body) {
     saveOutlet: surveySaveOutlet_,
     importOutlets: surveyImportOutlets_,
     resolveFlag: surveyResolveFlag_,
-    sendNotice: surveySendNotice_
+    sendNotice: surveySendNotice_,
+    questionnaire: surveyQuestionnaire_,
+    saveQuestion: surveySaveQuestion_
   };
   var fn = body && handlers[body.action];
   if (!fn) return null;
@@ -301,7 +311,7 @@ function surveyPing_(body) {
   });
   if (body.state === 'offline') return { ok: true };
   // Piggy-back the bell and the outlet list version so the phone needs no extra calls
-  return { ok: true, notes: notesFor_(u), outletsVersion: outletsVersion_(), packVersion: nationalVersion_() };
+  return { ok: true, notes: notesFor_(u), outletsVersion: outletsVersion_(), packVersion: nationalVersion_(), questionsVersion: questionsVersion_() };
 }
 
 function surveyFlag_(body) {
@@ -604,7 +614,7 @@ function surveyImportOutlets_(body) {
     });
     if (fresh.length) {
       var start = sheet.getLastRow() + 1;
-      headers.forEach(function (h, i) { if (TEXT_COLS.indexOf(h) > -1) sheet.getRange(start, i + 1, fresh.length, 1).setNumberFormat('@'); });
+      headers.forEach(function (h, i) { if (textCol_(h)) sheet.getRange(start, i + 1, fresh.length, 1).setNumberFormat('@'); });
       sheet.getRange(start, 1, fresh.length, headers.length).setValues(fresh);
     }
     bumpOutlets_();
@@ -651,10 +661,11 @@ function surveyAddSurvey_(body) {
   }
   // Answers: numbers stay numbers, the rest is text. Blank = not asked or not answered.
   var answers = s.answers || {};
-  ANSWER_KEYS.forEach(function (k) {
+  var types = customTypes_();
+  ANSWER_KEYS.concat(Object.keys(types)).forEach(function (k) {
     var v = answers[k];
     if (v == null || v === '') { row[k] = ''; return; }
-    row[k] = NUMBER_ANSWER.test(k) ? num_(v) : String(v).slice(0, 500);
+    row[k] = NUMBER_ANSWER.test(k) || types[k] === 'number' ? num_(v) : String(v).slice(0, 500);
   });
 
   var duplicate = false;
@@ -794,6 +805,92 @@ function surveySendNotice_(body) {
   return { ok: true };
 }
 
+/* ---------- questions the admin changes from the app ---------- */
+// One row per change. A built-in key rewords that question (q, hint) or turns it
+// off (active = no). An x_ key is a question the admin added; its answers get
+// their own column at the end of the Surveys tab, which is never removed.
+
+var QUESTION_TYPES = ['single', 'multi', 'number', 'text'];
+var SECTION_IDS = ['observe', 'manager', 'staff', 'consumer', 'assess'];
+var GROUP_CODES = ['lost', 'sg', 'hb'];
+
+function questionsVersion_() {
+  return PropertiesService.getScriptProperties().getProperty('QUESTIONS_VERSION') || '0';
+}
+
+var question_rows_ = null;
+function questionRows_() {
+  if (question_rows_) return question_rows_;
+  var yes = function (v) { return ['yes', 'true', '1'].indexOf(String(v).trim().toLowerCase()) > -1; };
+  var list = function (v) { return String(v || '').split(/\n|\|/).map(function (x) { return x.trim(); }).filter(String); };
+  question_rows_ = readRows_(QUESTIONS_SHEET, 0).filter(function (r) { return String(r.key).trim(); }).map(function (r) {
+    return {
+      key: String(r.key).trim(), section: String(r.section || '').trim(), after: String(r.after || '').trim(),
+      type: String(r.type || '').trim(), q: String(r.q || '').trim(), hint: String(r.hint || '').trim(),
+      options: list(r.options), unit: String(r.unit || '').trim(),
+      groups: list(String(r.groups || '').replace(/,/g, '|')).filter(function (g) { return GROUP_CODES.indexOf(g) > -1; }),
+      required: yes(r.required), active: String(r.active).trim() === '' ? true : yes(r.active),
+      updatedAt: String(r.updatedAt || ''), updatedBy: String(r.updatedBy || '')
+    };
+  });
+  return question_rows_;
+}
+
+// Added questions and their answer type, in the order they were added
+function customTypes_() {
+  var out = {};
+  questionRows_().forEach(function (r) { if (r.key.indexOf('x_') === 0 && QUESTION_TYPES.indexOf(r.type) > -1) out[r.key] = r.type; });
+  return out;
+}
+
+function surveyQuestionnaire_(body) {
+  requireUser_(body.token);
+  var version = questionsVersion_();
+  if (body.version && String(body.version) === version) return { ok: true, same: true, version: version };
+  return { ok: true, version: version, rows: questionRows_() };
+}
+
+function surveySaveQuestion_(body) {
+  var me = requireUser_(body.token, ['admin']);
+  var q = body.question || {};
+  var key = String(q.key || '').trim();
+  var custom = !key || key.indexOf('x_') === 0;
+  var section = String(q.section || '').trim();
+  if (SECTION_IDS.indexOf(section) < 0) return { ok: false, message: 'Pick a section.' };
+  var text = String(q.q || '').trim().slice(0, 300);
+  var options = (q.options || []).map(function (o) { return String(o).trim().slice(0, 120); }).filter(String);
+  var type = custom ? String(q.type || '') : 'builtin';
+  if (custom) {
+    if (QUESTION_TYPES.indexOf(type) < 0) return { ok: false, message: 'Pick an answer type.' };
+    if (!text) return { ok: false, message: 'Write the question.' };
+    if ((type === 'single' || type === 'multi') && options.length < 2) return { ok: false, message: 'Add at least two answers, one per line.' };
+  }
+  var row = {
+    section: section, after: String(q.after || '').trim(), type: type, q: text, hint: String(q.hint || '').trim().slice(0, 300),
+    options: custom ? options.join('\n') : '', unit: custom ? String(q.unit || '').trim().slice(0, 40) : '',
+    groups: (q.groups || []).filter(function (g) { return GROUP_CODES.indexOf(g) > -1; }).join(', '),
+    required: q.required ? 'yes' : 'no', active: q.active === false ? 'no' : 'yes', updatedAt: now_(), updatedBy: me.name
+  };
+  var result = null;
+  withLock_(function () {
+    var sheet = sheet_(QUESTIONS_SHEET);
+    if (!key) {
+      key = 'x_' + Utilities.getUuid().replace(/-/g, '').slice(0, 6);
+      row.key = key;
+      appendByHeader_(sheet, row);
+    } else if (!updateWhere_(sheet, 'key', key, row)) {
+      row.key = key;
+      appendByHeader_(sheet, row);
+    }
+    question_rows_ = null;
+    // Give a new question its column in the Surveys tab straight away
+    if (custom) sheet_(SURVEY_SHEET);
+    PropertiesService.getScriptProperties().setProperty('QUESTIONS_VERSION', String(Date.now()));
+    result = { ok: true, key: key };
+  });
+  return result;
+}
+
 /* ---------- sheet helpers ---------- */
 
 // Reads a tab as objects keyed by header. tail > 0 reads only the last N rows.
@@ -814,7 +911,7 @@ function readRows_(name, tail) {
 function sheet_(name) {
   var ss = ss_();
   var sheet = ss.getSheetByName(name) || ss.insertSheet(name);
-  var want = SHEET_HEADERS[name];
+  var want = name === SURVEY_SHEET ? SURVEY_HEADERS.concat(Object.keys(customTypes_())) : SHEET_HEADERS[name];
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, want.length).setValues([want]).setFontWeight('bold');
     sheet.setFrozenRows(1);
@@ -849,7 +946,7 @@ function updateWhere_(sheet, header, value, obj) {
   headers_(sheet).forEach(function (h, i) {
     if (!Object.prototype.hasOwnProperty.call(obj, h)) return;
     var cell = sheet.getRange(r, i + 1);
-    if (TEXT_COLS.indexOf(h) > -1) cell.setNumberFormat('@');
+    if (textCol_(h)) cell.setNumberFormat('@');
     cell.setValue(safe_(obj[h]));
   });
   return true;
@@ -861,7 +958,7 @@ function appendByHeader_(sheet, obj) {
   var headers = headers_(sheet);
   var values = headers.map(function (h) { return Object.prototype.hasOwnProperty.call(obj, h) ? safe_(obj[h]) : ''; });
   var r = sheet.getLastRow() + 1;
-  headers.forEach(function (h, i) { if (TEXT_COLS.indexOf(h) > -1) sheet.getRange(r, i + 1).setNumberFormat('@'); });
+  headers.forEach(function (h, i) { if (textCol_(h)) sheet.getRange(r, i + 1).setNumberFormat('@'); });
   sheet.getRange(r, 1, 1, headers.length).setValues([values]);
 }
 
@@ -898,7 +995,7 @@ function appendFast_(sheet, obj) {
   var values = headers.map(function (h) {
     if (!Object.prototype.hasOwnProperty.call(obj, h)) return '';
     var v = safe_(obj[h]);
-    return TEXT_COLS.indexOf(h) > -1 && typeof v === 'string' && v !== '' && v.charAt(0) !== "'" ? "'" + v : v;
+    return textCol_(h) && typeof v === 'string' && v !== '' && v.charAt(0) !== "'" ? "'" + v : v;
   });
   sheet.appendRow(values);
 }
@@ -988,5 +1085,5 @@ function onOpen() {
 
 function surveySetupFromMenu() {
   surveySetup();
-  SpreadsheetApp.getUi().alert('Setup done. Surveys, Presence, Logins, Track, Flags, Outlets and Notifications tabs are ready.');
+  SpreadsheetApp.getUi().alert('Setup done. Surveys, Presence, Logins, Track, Flags, Outlets, Notifications and Questions tabs are ready.');
 }

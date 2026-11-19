@@ -160,6 +160,6 @@ export function surveyLine(s) {
   if (sg != null || hb != null) return `St. George ${sg ?? '–'} · Habesha ${hb ?? '–'} kegs`
   return text(s.group) || 'No keg count'
 }
-const SHORT_GROUP = { 'Lost Habesha outlet': 'Lost', 'St. George-dominant (never Habesha)': 'St. George', 'Active Habesha outlet': 'Active' }
+const SHORT_GROUP = { 'Lost Habesha outlet': 'Lost', 'St. George-dominant (never Habesha)': 'St. George', 'Habesha draught outlet': 'Habesha' }
 export const groupShort = (g) => SHORT_GROUP[text(g)] || text(g)
 export { text, num }

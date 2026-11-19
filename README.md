@@ -9,18 +9,30 @@ Draught survey app for BAs, with a manager view and admin console in the same ap
 Built on the Draught Immersion Field Kit (Addis Ababa, high-end outlets), one question per screen. Tapping an answer moves on by itself; numbers, ratings, tick-all and note questions have a Next button. The rule from the kit runs through it: ask about tonight, not what people would do, and never say "Habesha" before the consumer does.
 
 1. Outlet: type part of the name and tap the outlet. Area, territory and parent territory come from the National Outlet tab.
-2. Outlet group: Lost Habesha outlet, St. George-dominant (never Habesha), or Active Habesha outlet. The owner questions change with the group.
-3. Outlet observation, 12 questions answered by watching (o_ columns), done in pairs over 2 rounds: draught drinkers now, orders watched and how many named a brand, what the waiter does when nobody names a brand and who decides, brands on tap, what branding is visible, a quality check per brand on tap (temperature, freshness, pour, foam, glass, 1 to 5), anyone pushing a brand, who drinks (age, men or women), groups or alone and how fast service is, men and women serving, draught or bottled and why, busiest time, and anything that surprised them.
-4. Outlet owner / manager (m_ columns), off-peak: who decided the taps, weekly kegs by brand, keg and glass prices, which brand makes the most money and which sells fastest, problems with any brand, agreements, then by group:
-   - Lost: what keeps St. George, what the St. George distributor gives them, when Habesha stopped and the real reason (in their words), what it would take to win them back, what would stop them, Habesha kegs a week they could sell, trial. 14 questions.
+2. Outlet group: Lost Habesha outlet, St. George-dominant (never Habesha), or Habesha draught outlet. The owner questions change with the group. Surveys saved under the old name "Active Habesha outlet" count as Habesha draught outlet.
+3. Outlet observation, 11 questions answered by watching (o_ columns), done in pairs over 2 rounds: draught consumers now, orders observed and how many named a brand, what the waiter does when nobody names a brand and who decides (consumer, waiter, owner or manager, barman), brands on tap, St. George or Habesha glasses on show, a quality check per brand on tap (temperature, freshness, pour, foam, glass, 1 to 5), anyone pushing a brand, who drinks (age, men or women), groups or alone and how busy it is, draught or bottled, busiest time, and anything that surprised them.
+4. Outlet owner / manager (m_ columns), off-peak: who decided which brands are sold, weekly kegs by brand, single and jambo prices for St. George and Habesha, which brand sells fastest and is most profitable, problems with any brand, agreements, then by group:
+   - Lost: what keeps St. George (consumer demand, margin, service quality, draught machine performance, trade marketing investments, exclusivity, sales team relationship), what the St. George distributor gives them, when Habesha stopped and the real reason (in their words), what it would take to win them back, what would stop them, Habesha kegs a week they could sell, trial. 14 questions.
    - St. George-dominant: the same without the two "lost" questions; the win-back question becomes "what would make you switch or add a tap?". 12 questions.
-   - Active Habesha: what would make them sell more Habesha and the kegs they could sell. 8 questions.
+   - Habesha draught: what would make them sell more Habesha and the kegs they could sell. 8 questions.
 5. Bar staff, 10 questions (9 outside lost outlets, s_ columns): what they bring when someone says only "jambo", what happens with the wrong beer, which beer makes their day easier, what they get for pushing a brand, their own favourite, glasses lost to foam, line cleaning, why Habesha was removed (lost only), what reason would make them bring a different beer, and the best thing they said.
 6. Draught consumer, 11 questions (c_ columns): what beer they are drinking right now, what they said when they ordered (with their exact words), single or jambo, what they did when a waiter brought a different beer, who they would blame for a bad beer, what good draught looks like, who decides in the group, then only at the end whether they have drunk Habesha and why not, the best thing they said, and the invite to the paid consumer Q&A (name and phone required if they agree).
 7. Your assessment, 1 question (a_likelihood): chance of conversion, High, Medium or Low.
 8. Review, then Submit.
 
 Each section starts with a short intro from the kit and can be skipped when nobody is available ("skipped" column).
+
+The field kit guides are in the app in Amharic: the observation sheet on the Observation intro, and the customer conversation guide on the Bar staff (waiter) and Owner / manager intros. A Guide button (መመሪያ) on every question of those sections opens it again. The text is in `src/guides.js`.
+
+## Questions tab (admin)
+
+The admin can change the questionnaire from the app, without a code change:
+
+- Add a question to any section: one answer, tick all, a number or a note in their words. Choose the outlet groups that get it, where it goes, and whether an answer is required.
+- Reword a built-in question or its note. Its answers stay fixed, because the analysis counts them.
+- Turn any question off, and back on. Answers already saved stay in the sheet.
+
+Changes are kept in the Questions tab of the sheet and reach the phones on their next sync, usually within a minute; phones keep the last version for offline work. Each added question gets its own column (x_ and six characters) at the end of the Surveys tab, and shows in the admin Analysis tab with the others.
 
 ## Before you leave the field
 

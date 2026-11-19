@@ -7,6 +7,8 @@ import Bell from '../components/Bell'
 import { Emblem, Notice, SignOutButton } from '../components/ui'
 import { FlagsTab, MessagesTab, OutletsTab, RequestsTab, UsersTab } from './tabs'
 import Analysis from './Analysis'
+import QuestionsTab from './Questions'
+import { syncQuestions } from '../questions'
 
 const TABS = [
   { key: 'analysis', label: 'Analysis' },
@@ -15,6 +17,7 @@ const TABS = [
   { key: 'requests', label: 'Requests' },
   { key: 'flags', label: 'Alerts' },
   { key: 'messages', label: 'Messages' },
+  { key: 'questions', label: 'Questions' },
 ]
 
 export default function Admin() {
@@ -34,6 +37,15 @@ export default function Admin() {
     } catch (err) {
       setError(err.message)
     }
+  }, [])
+
+  // Added or reworded questions show in the analysis too
+  const [, setQv] = useState(0)
+  useEffect(() => {
+    syncQuestions()
+    const on = () => setQv((n) => n + 1)
+    window.addEventListener('questions-changed', on)
+    return () => window.removeEventListener('questions-changed', on)
   }, [])
 
   useEffect(() => {
@@ -80,13 +92,13 @@ export default function Admin() {
             <SignOutButton onClick={signOut} />
           </div>
 
-          <nav className="relative mt-4 grid grid-cols-6">
+          <nav className="relative mt-4 grid grid-cols-7">
             {TABS.map((t) => (
               <button
                 key={t.key}
                 type="button"
                 onClick={() => setTab(t.key)}
-                className={`relative min-h-[46px] min-w-0 px-0.5 text-[11.5px] min-[380px]:text-[13px] sm:text-sm font-semibold transition-colors ${tab === t.key ? 'text-gold' : 'text-paper/60 hover:text-paper'}`}
+                className={`relative min-h-[46px] min-w-0 px-0.5 text-[10px] min-[400px]:text-[11.5px] min-[480px]:text-[13px] sm:text-sm font-semibold transition-colors ${tab === t.key ? 'text-gold' : 'text-paper/60 hover:text-paper'}`}
               >
                 <span className="relative">
                   {t.label}
@@ -117,6 +129,7 @@ export default function Admin() {
             {tab === 'requests' && <RequestsTab {...props} />}
             {tab === 'flags' && <FlagsTab {...props} />}
             {tab === 'messages' && <MessagesTab {...props} />}
+            {tab === 'questions' && <QuestionsTab say={say} />}
           </div>
         )}
       </div>

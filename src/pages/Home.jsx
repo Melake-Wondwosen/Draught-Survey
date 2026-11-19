@@ -5,6 +5,7 @@ import { locationMessage, onLocation } from '../location'
 import { addLocalNote, clearNotesMemory, setServerNotes } from '../notes'
 import { clearPack, syncOutlets, syncPack } from '../outlets'
 import { setActivity, stopPresence } from '../presence'
+import { syncQuestions } from '../questions'
 import { FIELD_TARGETS, clearDraft, clearUser, getDoneCounts, getDraft, getFieldToday, getLastSync, getQueue, getQueueWhy, getUser, setLastSync } from '../storage'
 import Bell from '../components/Bell'
 import { Button, Emblem, Notice, Pattern, Sheet, SignOutButton } from '../components/ui'
@@ -37,6 +38,7 @@ export default function Home() {
     setSyncing(true)
     if (!quiet) setResult(null)
     syncPack()
+    syncQuestions()
     const flush = await flushQueue()
     setPending(flush.left)
     setWhy(flush.why)

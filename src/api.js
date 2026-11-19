@@ -80,13 +80,21 @@ export const fetchOutlets = (version) => authed('outlets', { version })
 export const requestOutlet = (req) => authed('requestOutlet', req)
 export const lookupOutlet = (outletId) => authed('lookupOutlet', { outletId })
 export const fetchOutletPack = (version) => authed('outletPack', { version })
-export const managerData = (from, trackFrom) => authed('managerData', { from, trackFrom })
+// Surveys sent before the group was renamed count with the new name
+const OLD_GROUP = { 'Active Habesha outlet': 'Habesha draught outlet' }
+export const managerData = (from, trackFrom) =>
+  authed('managerData', { from, trackFrom }).then((d) => {
+    ;(d.surveys || []).forEach((s) => { if (OLD_GROUP[s.group]) s.group = OLD_GROUP[s.group] })
+    return d
+  })
 export const adminData = () => authed('adminData')
 export const saveUser = (user) => authed('saveUser', { user })
 export const saveOutlet = (outlet) => authed('saveOutlet', { outlet })
 export const importOutlets = (rows) => authed('importOutlets', { rows })
 export const resolveFlag = (id) => authed('resolveFlag', { id })
 export const sendNotice = (target, title, body) => authed('sendNotice', { target, title, body })
+export const fetchQuestions = (version) => authed('questionnaire', { version })
+export const saveQuestion = (question) => authed('saveQuestion', { question })
 
 // Fire-and-forget for when the app is being hidden or closed
 export function beacon(action, body) {

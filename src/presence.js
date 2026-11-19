@@ -4,6 +4,7 @@ import { latestFix, onLocation, startWatch } from './location'
 import { getUser } from './storage'
 import { setServerNotes } from './notes'
 import { syncOutlets, syncPack } from './outlets'
+import { syncQuestions } from './questions'
 
 // Tells the manager dashboard where each BA is and what they're doing.
 // Runs only while the app is open on the BA's phone.
@@ -29,6 +30,7 @@ function send() {
       setServerNotes(res.notes)
       if (res.outletsVersion) syncOutlets(res.outletsVersion)
       if (res.packVersion) syncPack(res.packVersion)
+      if (res.questionsVersion) syncQuestions(res.questionsVersion)
     })
     .catch(() => {})
 }

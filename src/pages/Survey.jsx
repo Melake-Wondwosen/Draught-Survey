@@ -8,6 +8,7 @@ import { clearDraft, countDone, getDraft, getUser, logField, pushQueue, setDraft
 import { Button, Sheet, Spinner } from '../components/ui'
 import { StepOutlet } from '../components/steps'
 import Question from '../components/Question'
+import { GUIDES } from '../guides'
 import { GROUPS, QUESTIONS, SECTIONS, answered, answersForSheet, isShown, pruneHidden } from '../questionnaire'
 
 const EMPTY = { outletName: '', outletId: '', division: '', agent: '', parentTerritory: '', territory: '', area: '', picked: false, offline: false, answers: {}, skipped: [] }
@@ -17,10 +18,10 @@ const GROUP_Q = { key: 'group', type: 'single', q: 'Which group is this outlet i
 function buildSteps(d) {
   const steps = [{ id: 'outlet', kind: 'outlet' }, { id: 'group', kind: 'group' }]
   SECTIONS.forEach((s, si) => {
-    steps.push({ id: 'intro-' + s.id, kind: 'intro', section: s, n: si + 1 })
-    if (d.skipped.includes(s.id)) return
     // Only the questions this outlet gets, so the count matches what the BA will see
     const shown = QUESTIONS.filter((q) => q.section === s.id && isShown(q, d.answers))
+    steps.push({ id: 'intro-' + s.id, kind: 'intro', section: s, n: si + 1, count: shown.length })
+    if (d.skipped.includes(s.id)) return
     shown.forEach((q, qi) => steps.push({ id: q.key, kind: 'question', q, section: s, n: qi + 1, of: shown.length }))
   })
   steps.push({ id: 'review', kind: 'review' })
@@ -179,6 +180,7 @@ export default function Survey() {
 
   // In-app dialog, since some browsers and embedded views block window.confirm
   const [leaving, setLeaving] = useState(false)
+  const [guide, setGuide] = useState(null)
   function abandon() {
     if (touched) setLeaving(true)
     else navigate('/', { replace: true })
@@ -288,10 +290,17 @@ export default function Survey() {
             {step.kind === 'group' && (
               <Question q={GROUP_Q} a={data.answers} set={setAnswer} eyebrow="Outlet group" onPicked={() => setAdvance((n) => n + 1)} />
             )}
+            {step.kind === 'question' && GUIDES[step.section.id] && (
+              <div className="flex justify-end -mt-3 mb-1">
+                <button type="button" onClick={() => setGuide(step.section.id)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-semibold text-gold-dark hover:bg-gold/10">
+                  <BookIcon /> መመሪያ
+                </button>
+              </div>
+            )}
             {step.kind === 'question' && (
               <Question q={step.q} a={data.answers} set={setAnswer} eyebrow={`${step.section.short} · ${step.n} of ${step.of}`} onPicked={() => setAdvance((n) => n + 1)} />
             )}
-            {step.kind === 'intro' && <Intro step={step} skipped={data.skipped.includes(step.section.id)} onSkip={() => skipSection(step.section.id)} />}
+            {step.kind === 'intro' && <Intro step={step} skipped={data.skipped.includes(step.section.id)} onSkip={() => skipSection(step.section.id)} onGuide={() => setGuide(step.section.id)} />}
             {step.kind === 'review' && <Review data={data} steps={steps} onEdit={(id) => goTo(id, -1)} />}
           </div>
         </div>
@@ -341,11 +350,12 @@ export default function Survey() {
           <p className="text-sm text-ink/70">Your answers are saved on the phone. You can carry on from the home screen.</p>
         </Sheet>
       )}
+      {guide && <GuideSheet guide={GUIDES[guide]} onClose={() => setGuide(null)} />}
     </main>
   )
 }
 
-function Intro({ step, skipped, onSkip }) {
+function Intro({ step, skipped, onSkip, onGuide }) {
   const s = step.section
   return (
     <div className="pt-4 text-center">
@@ -364,8 +374,13 @@ function Intro({ step, skipped, onSkip }) {
         {s.intro}
       </p>
       <p className="anim-rise text-sm text-ink/45 mt-2" style={{ animationDelay: '200ms' }}>
-        {QUESTIONS.filter((q) => q.section === s.id).length} questions
+        {step.count} {step.count === 1 ? 'question' : 'questions'}
       </p>
+      {GUIDES[s.id] && (
+        <button type="button" onClick={onGuide} className="anim-rise btn-hover mt-6 inline-flex items-center gap-2 h-11 px-5 rounded-full border border-gold/60 text-sm font-semibold text-ink hover:bg-gold/10" style={{ animationDelay: '220ms' }}>
+          <BookIcon /> {GUIDES[s.id].title.split('፦')[0]}
+        </button>
+      )}
       {skipped && <p className="anim-rise mt-5 text-sm font-semibold text-gold-dark">Skipped. Press Start to answer it after all.</p>}
       <button type="button" onClick={onSkip} className="anim-rise mt-8 text-sm text-ink/55 underline underline-offset-4 min-h-[44px] px-3 hover:text-ink" style={{ animationDelay: '240ms' }}>
         {s.skipLabel}
@@ -414,5 +429,36 @@ function Review({ data, steps, onEdit }) {
         })}
       </ul>
     </div>
+  )
+}
+
+function BookIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z" />
+      <path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z" />
+    </svg>
+  )
+}
+
+// The field kit guide for this section, in Amharic
+function GuideSheet({ guide, onClose }) {
+  return (
+    <Sheet title={guide.title} onClose={onClose} footer={<Button variant="gold" onClick={onClose}>ዝጋ</Button>}>
+      <p className="text-xs uppercase tracking-wider text-gold-dark font-semibold -mt-2">{guide.en}</p>
+      <p className="text-[15px] leading-relaxed text-ink/75">{guide.intro}</p>
+      <ol className="space-y-3">
+        {guide.items.map((it, i) => (
+          <li key={i} className="flex gap-3">
+            <span className="shrink-0 w-7 h-7 rounded-full bg-ink text-gold text-xs font-bold flex items-center justify-center">{i + 1}</span>
+            <div className="pt-0.5">
+              <p className="text-[15px] leading-relaxed">{it.q}</p>
+              {it.note && <p className="text-[13px] text-ink/55 mt-0.5 leading-relaxed">{it.note}</p>}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {guide.rule && <p className="rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3 text-[14px] leading-relaxed">{guide.rule}</p>}
+    </Sheet>
   )
 }

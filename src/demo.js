@@ -65,8 +65,8 @@ function build() {
               if (rnd() < 0.15) return
               const hb = f.label === 'Habesha'
               const OBS = {
-                o_drinkersNow: 3 + rnd() * 25, o_ordersWatched: 6 + rnd() * 14, o_waitersMen: 1 + rnd() * 4, o_waitersWomen: 1 + rnd() * 6,
-                m_priceKegStGeorge: 5200 + rnd() * 900, m_priceGlassStGeorge: 60 + rnd() * 30, m_priceKegHabesha: 4900 + rnd() * 900, m_priceGlassHabesha: 55 + rnd() * 30,
+                o_drinkersNow: 3 + rnd() * 25, o_ordersWatched: 6 + rnd() * 14,
+                m_priceSingleStGeorge: 60 + rnd() * 30, m_priceJamboStGeorge: 110 + rnd() * 50, m_priceSingleHabesha: 55 + rnd() * 30, m_priceJamboHabesha: 100 + rnd() * 50,
                 m_hbPotential: (group === GROUPS[2] ? 8 : 3) + rnd() * 10, s_foamStGeorge: 3 + rnd() * 8, s_foamHabesha: 3 + rnd() * 10,
               }
               a[f.key] = f.key in OBS ? Math.round(OBS[f.key]) : q.max ? Math.floor(rnd() * (hb ? 3 : 6)) : Math.round((hb ? (group === GROUPS[2] ? 8 : 2) : j === 0 ? 10 : 2) * (0.4 + rnd()))
@@ -167,6 +167,11 @@ function demoNotes(role) {
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// The demo keeps the admin's question changes in this browser
+function demoQuestions() {
+  try { return JSON.parse(localStorage.getItem('draught_demo_questions')) || { version: '1', rows: [] } } catch { return { version: '1', rows: [] } }
+}
+
 export async function demoCall(action, p) {
   await wait(350)
   const a = adminState()
@@ -179,7 +184,7 @@ export async function demoCall(action, p) {
     }
     case 'ping':
     case 'notifications':
-      return { ok: true, notes: demoNotes('ba'), outletsVersion: String(a.ver || 1) }
+      return { ok: true, notes: demoNotes('ba'), outletsVersion: String(a.ver || 1), questionsVersion: demoQuestions().version }
     case 'outletPack': {
       const dict = ['North Addis', 'Demo Agent plc', 'Addis Ababa Gullele', 'Addis Ababa Aware']
       const rows = a.outlets.filter((o) => o.status === 'active' && o.outletId).map((o) => [o.outletId, o.outletName, 0, 1, 2, 3])
@@ -232,6 +237,22 @@ export async function demoCall(action, p) {
       return { ok: true }
     case 'flag':
       return { ok: true }
+    case 'questionnaire': {
+      const q = demoQuestions()
+      if (p.version && p.version === q.version) return { ok: true, same: true, version: q.version }
+      return { ok: true, version: q.version, rows: q.rows }
+    }
+    case 'saveQuestion': {
+      const q = demoQuestions()
+      const row = { ...p.question }
+      if (!row.key) row.key = 'x_' + Math.random().toString(36).slice(2, 8)
+      const i = q.rows.findIndex((r) => r.key === row.key)
+      if (i > -1) q.rows[i] = { ...q.rows[i], ...row }
+      else q.rows.push(row)
+      q.version = String(Date.now())
+      try { localStorage.setItem('draught_demo_questions', JSON.stringify(q)) } catch { /* full */ }
+      return { ok: true, key: row.key }
+    }
   }
   throw new Error('Not available in the demo.')
 }
