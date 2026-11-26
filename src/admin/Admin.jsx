@@ -8,6 +8,7 @@ import { Emblem, Notice, SignOutButton } from '../components/ui'
 import { FlagsTab, MessagesTab, OutletsTab, RequestsTab, UsersTab } from './tabs'
 import Analysis from './Analysis'
 import QuestionsTab from './Questions'
+import { ExtractButton } from './Extract'
 import { syncQuestions } from '../questions'
 
 const TABS = [
@@ -84,6 +85,7 @@ export default function Admin() {
               <p className="text-xs uppercase tracking-wider text-gold truncate">Admin</p>
               <p className="font-serif text-lg truncate">{user.name}</p>
             </div>
+            <ExtractButton />
             <Link to="/manager" className="btn-hover inline-flex items-center justify-center text-sm text-gold border border-gold/40 rounded-full w-10 sm:w-auto sm:px-4 h-10 shrink-0 hover:bg-gold hover:text-ink" aria-label="Manager view">
               <svg className="sm:hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 1 1 14 0c0 5.8-7 12-7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
               <span className="hidden sm:inline">Manager view</span>

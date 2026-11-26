@@ -26,6 +26,10 @@ Each section starts with a short intro from the kit and can be skipped when nobo
 
 The field kit guides are in the app in Amharic: the observation sheet on the Observation intro, and the customer conversation guide on the Bar staff (waiter) and Owner / manager intros. A Guide button (መመሪያ) on every question of those sections opens it again. The text is in `src/guides.js`.
 
+## Extract (admin)
+
+The Extract button in the admin header downloads the surveys as an Excel file: one row per survey with date, BA, outlet, area, division, agent, territories, outlet group and sections skipped, then one column per answer named by section and question (questions turned off and admin-added ones included; columns empty in every row are left out), then distance from the outlet and GPS. Filters: period (all, this month, last 30 days, or dates), outlet group, division, and latest visit per outlet only. A second tab, Columns, matches each column to its name in the Surveys tab. The file is written in the browser (src/xlsx.js), no extra library.
+
 ## Questions tab (admin)
 
 The admin changes the questionnaire from the app, with no code change. Every question opens in an editor with a live phone preview for each outlet group.

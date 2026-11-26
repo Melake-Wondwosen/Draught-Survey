@@ -479,6 +479,24 @@ export function applyQuestionConfig(rows) {
   QUESTIONS = mergeQuestions(CONFIG).filter((q) => !q.off)
 }
 
+// A readable name for every answer column of these questions, in survey order (for the Excel extract)
+export function sheetColumns(list) {
+  return list.flatMap((q) => {
+    const sec = (SECTIONS.find((x) => x.id === q.section) || {}).tab || ''
+    const name = q.title || (typeof q.q === 'function' ? q.q({ group: GROUPS[0] }) : q.q)
+    const label = { [q.key]: name, [q.key + 'Other']: `${name} (in their words)` }
+    ;((q.follow && q.follow.fields) || []).forEach((f) => (label[f.key] = `${name}: ${f.label}`))
+    if (q.main) label[q.main.key] = `${name}: ${q.main.label}`
+    ;(q.fields || []).forEach((f) => (label[f.key] = `${name}: ${f.label}${f.unit || q.unit ? ` (${f.unit || q.unit})` : ''}`))
+    ;(q.parts || []).forEach((p) => (label[p.key] = `${name}: ${p.label}`))
+    if (q.type === 'rating') {
+      const brands = q.allBrands || [SG, HB]
+      ;(q.rows || []).forEach(([id, l]) => brands.forEach((b) => (label[`${q.prefix}${id}${BRAND_CODE[b] ?? ''}`] = `${name}: ${l}${b ? ` (${b})` : ''}`)))
+    }
+    return keysOf([q]).map((k) => ({ key: k, header: `${sec}: ${label[k] || k}` }))
+  })
+}
+
 // Sheet columns a question needs beyond the built-in ones, and whether they hold numbers
 export function extraColumns(q) {
   const num = q.type === 'numbers' || q.type === 'rating'
